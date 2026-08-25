@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../accounts/presentation/widgets/account_picker.dart';
 import '../../data/income_repository.dart';
 
 class IncomesPage extends StatefulWidget {
@@ -21,9 +22,7 @@ class _IncomesPageState extends State<IncomesPage> {
     _reload();
   }
 
-  void _reload() {
-    _future = _repository.fetchMonth(_month);
-  }
+  void _reload() => _future = _repository.fetchMonth(_month);
 
   void _changeMonth(int delta) {
     setState(() {
@@ -38,7 +37,17 @@ class _IncomesPageState extends State<IncomesPage> {
       isScrollControlled: true,
       builder: (_) => const _AddIncomeSheet(),
     );
-    if (created == true) {
+    if (created == true) setState(_reload);
+  }
+
+  Future<void> _receive(IncomeOccurrenceItem item) async {
+    final account = await showAccountPicker(context, title: 'Gelir hangi hesaba geldi?');
+    if (account == null || !mounted) return;
+    await _repository.markReceived(item.id, accountId: account.id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${account.name} hesabına gelir işlendi')),
+      );
       setState(_reload);
     }
   }
@@ -54,19 +63,17 @@ class _IncomesPageState extends State<IncomesPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                IconButton(onPressed: () => _changeMonth(-1), icon: const Icon(Icons.chevron_left)),
-                Expanded(
-                  child: Text(
-                    DateFormat('MMMM yyyy', 'tr_TR').format(_month),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
+            child: Row(children: [
+              IconButton(onPressed: () => _changeMonth(-1), icon: const Icon(Icons.chevron_left)),
+              Expanded(
+                child: Text(
+                  DateFormat('MMMM yyyy', 'tr_TR').format(_month),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                 ),
-                IconButton(onPressed: () => _changeMonth(1), icon: const Icon(Icons.chevron_right)),
-              ],
-            ),
+              ),
+              IconButton(onPressed: () => _changeMonth(1), icon: const Icon(Icons.chevron_right)),
+            ]),
           ),
           Expanded(
             child: FutureBuilder<List<IncomeOccurrenceItem>>(
@@ -75,47 +82,28 @@ class _IncomesPageState extends State<IncomesPage> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) {
-                  return Center(child: Text(snapshot.error.toString()));
-                }
+                if (snapshot.hasError) return Center(child: Text(snapshot.error.toString()));
                 final items = snapshot.data ?? const [];
-                if (items.isEmpty) {
-                  return const Center(child: Text('Bu ay için gelir kaydı yok.'));
-                }
-                final expected = items.fold<double>(0, (sum, item) => sum + item.amount);
+                if (items.isEmpty) return const Center(child: Text('Bu ay için gelir kaydı yok.'));
+
+                final planned = items.fold<double>(0, (sum, item) => sum + item.amount);
                 final received = items.where((e) => e.received).fold<double>(0, (sum, item) => sum + item.amount);
                 return ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    Row(
-                      children: [
-                        Expanded(child: _MetricCard(title: 'Planlanan', value: _money(expected))),
-                        const SizedBox(width: 12),
-                        Expanded(child: _MetricCard(title: 'Gelen', value: _money(received))),
-                      ],
-                    ),
+                    Row(children: [
+                      Expanded(child: _MetricCard(title: 'Planlanan', value: _money(planned))),
+                      const SizedBox(width: 12),
+                      Expanded(child: _MetricCard(title: 'Gelen', value: _money(received))),
+                    ]),
                     const SizedBox(height: 18),
                     ...items.map((item) => Card(
                           child: ListTile(
-                            leading: CircleAvatar(
-                              child: Icon(item.received ? Icons.check : Icons.south_west),
-                            ),
-                            title: Text(
-                              item.name,
-                              style: TextStyle(
-                                decoration: item.received ? TextDecoration.lineThrough : null,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${DateFormat('d MMMM', 'tr_TR').format(item.expectedDate)} • ${item.received ? 'Geldi' : 'Bekleniyor'}',
-                            ),
+                            leading: CircleAvatar(child: Icon(item.received ? Icons.check : Icons.south_west)),
+                            title: Text(item.name, style: TextStyle(decoration: item.received ? TextDecoration.lineThrough : null)),
+                            subtitle: Text('${DateFormat('d MMMM', 'tr_TR').format(item.expectedDate)} • ${item.received ? 'Geldi' : 'Bekleniyor'}'),
                             trailing: Text(_money(item.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
-                            onTap: item.received
-                                ? null
-                                : () async {
-                                    await _repository.markReceived(item.id);
-                                    if (mounted) setState(_reload);
-                                  },
+                            onTap: item.received ? null : () => _receive(item),
                           ),
                         )),
                   ],
@@ -134,27 +122,23 @@ class _IncomesPageState extends State<IncomesPage> {
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
-
   const _MetricCard({required this.title, required this.value});
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title),
-          const SizedBox(height: 8),
-          FittedBox(child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title),
+            const SizedBox(height: 8),
+            FittedBox(child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+          ]),
+        ),
+      );
 }
 
 class _AddIncomeSheet extends StatefulWidget {
   const _AddIncomeSheet();
-
   @override
   State<_AddIncomeSheet> createState() => _AddIncomeSheetState();
 }
@@ -176,7 +160,7 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   }
 
   Future<void> _save() async {
-    final amount = double.tryParse(this._amount.text.replaceAll(',', '.'));
+    final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
     if (_name.text.trim().isEmpty || amount == null || amount <= 0) return;
     setState(() => _saving = true);
     try {
