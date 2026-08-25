@@ -34,32 +34,71 @@ class _CashFlowPageState extends State<CashFlowPage> {
   }
 
   Future<_CashFlowData> _loadMonth(DateTime month) async {
-    final from = DateTime(month.year, month.month, 1);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final currentMonth = DateTime(today.year, today.month, 1);
+    final selectedMonth = DateTime(month.year, month.month, 1);
+    final from = selectedMonth;
     final to = DateTime(month.year, month.month + 1, 0);
+    final isPastMonth = selectedMonth.isBefore(currentMonth);
+    final isCurrentMonth = selectedMonth == currentMonth;
 
     final payments = await _paymentRepository.getPayments(from: from, to: to);
     final incomes = await _incomeRepository.fetchMonth(month);
     final accounts = await _accountRepository.fetchAll();
 
-    final openingBalance = accounts
+    final currentBalance = accounts
         .where((item) => item.active && item.currency == 'TRY')
         .fold<double>(0, (sum, item) => sum + item.balance);
 
     final entries = <_CashFlowEntry>[
       ...payments.map(_CashFlowEntry.fromPayment),
       ...incomes.map(_CashFlowEntry.fromIncome),
-    ]..sort((a, b) {
-        final dateCompare = a.date.compareTo(b.date);
-        if (dateCompare != 0) return dateCompare;
-        if (a.isIncome == b.isIncome) return a.title.compareTo(b.title);
-        return a.isIncome ? -1 : 1;
-      });
+    ]..sort(_compareEntries);
 
-    var projectedBalance = openingBalance;
-    final projectedEntries = entries.map((entry) {
-      projectedBalance += entry.signedAmount;
-      return entry.copyWith(projectedBalance: projectedBalance);
-    }).toList();
+    double? projectionOpeningBalance;
+    double? projectionClosingBalance;
+    var projectedEntries = entries;
+
+    if (!isPastMonth) {
+      var openingBalance = currentBalance;
+
+      // For a future month, carry today's balance through all still-pending
+      // events before that month so the month starts from a meaningful estimate.
+      if (!isCurrentMonth) {
+        final carryEnd = from.subtract(const Duration(days: 1));
+        final carryPayments = await _paymentRepository.getPayments(
+          from: today,
+          to: carryEnd,
+        );
+        final carryIncomes = await _loadIncomeRange(today, carryEnd);
+        final carryEntries = <_CashFlowEntry>[
+          ...carryPayments.map(_CashFlowEntry.fromPayment),
+          ...carryIncomes.map(_CashFlowEntry.fromIncome),
+        ]..sort(_compareEntries);
+
+        for (final entry in carryEntries) {
+          if (!entry.completed && !entry.date.isBefore(today)) {
+            openingBalance += entry.signedAmount;
+          }
+        }
+      }
+
+      projectionOpeningBalance = openingBalance;
+      var projectedBalance = openingBalance;
+      projectedEntries = entries.map((entry) {
+        final affectsProjection = !entry.completed &&
+            (isCurrentMonth ? !entry.date.isBefore(today) : true);
+        if (affectsProjection) {
+          projectedBalance += entry.signedAmount;
+        }
+        return entry.copyWith(
+          projectedBalance: affectsProjection ? projectedBalance : null,
+          affectsProjection: affectsProjection,
+        );
+      }).toList();
+      projectionClosingBalance = projectedBalance;
+    }
 
     final plannedIncome = incomes.fold<double>(0, (sum, item) => sum + item.amount);
     final totalPayments = payments.fold<double>(0, (sum, item) => sum + item.amount);
@@ -70,16 +109,61 @@ class _CashFlowPageState extends State<CashFlowPage> {
         .where((item) => item.received)
         .fold<double>(0, (sum, item) => sum + item.amount);
 
+    final remainingProjectedIncome = incomes
+        .where((item) =>
+            !item.received &&
+            (!isCurrentMonth || !item.expectedDate.isBefore(today)))
+        .fold<double>(0, (sum, item) => sum + item.amount);
+    final remainingProjectedPayments = payments
+        .where((item) =>
+            !item.paid &&
+            (!isCurrentMonth || !item.dueDate.isBefore(today)))
+        .fold<double>(0, (sum, item) => sum + item.amount);
+
     return _CashFlowData(
       entries: projectedEntries,
-      openingBalance: openingBalance,
-      projectedClosingBalance: projectedBalance,
+      currentBalance: currentBalance,
+      projectionOpeningBalance: projectionOpeningBalance,
+      projectedClosingBalance: projectionClosingBalance,
+      isPastMonth: isPastMonth,
+      isCurrentMonth: isCurrentMonth,
       plannedIncome: plannedIncome,
       receivedIncome: receivedIncome,
       totalPayments: totalPayments,
       remainingPayments: remainingPayments,
       plannedNet: plannedIncome - totalPayments,
+      remainingProjectedNet:
+          remainingProjectedIncome - remainingProjectedPayments,
     );
+  }
+
+  Future<List<IncomeOccurrenceItem>> _loadIncomeRange(
+    DateTime from,
+    DateTime to,
+  ) async {
+    if (to.isBefore(from)) return const [];
+
+    final result = <IncomeOccurrenceItem>[];
+    var cursor = DateTime(from.year, from.month, 1);
+    final lastMonth = DateTime(to.year, to.month, 1);
+
+    while (!cursor.isAfter(lastMonth)) {
+      final items = await _incomeRepository.fetchMonth(cursor);
+      result.addAll(items.where(
+        (item) =>
+            !item.expectedDate.isBefore(from) && !item.expectedDate.isAfter(to),
+      ));
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+
+    return result;
+  }
+
+  static int _compareEntries(_CashFlowEntry a, _CashFlowEntry b) {
+    final dateCompare = a.date.compareTo(b.date);
+    if (dateCompare != 0) return dateCompare;
+    if (a.isIncome == b.isIncome) return a.title.compareTo(b.title);
+    return a.isIncome ? -1 : 1;
   }
 
   void _changeMonth(int delta) {
@@ -148,24 +232,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
                   onNext: () => _changeMonth(1),
                 ),
                 const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Mevcut toplam bakiye'),
-                        const SizedBox(height: 8),
-                        Text(_money(data.openingBalance), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Ay sonu tahmini: ${_money(data.projectedClosingBalance)}',
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _ProjectionCard(data: data),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -194,26 +261,41 @@ class _CashFlowPageState extends State<CashFlowPage> {
                 Card(
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: data.plannedNet >= 0 ? incomeSoft : expenseSoft,
+                      backgroundColor:
+                          data.remainingProjectedNet >= 0 ? incomeSoft : expenseSoft,
                       child: Icon(
                         Icons.swap_vert,
-                        color: data.plannedNet >= 0 ? income : expense,
+                        color: data.remainingProjectedNet >= 0 ? income : expense,
                       ),
                     ),
-                    title: const Text('Planlanan net değişim'),
-                    subtitle: const Text('Gelir − toplam ödeme'),
+                    title: Text(data.isPastMonth
+                        ? 'Planlanan net değişim'
+                        : 'Kalan tahmini net değişim'),
+                    subtitle: Text(data.isPastMonth
+                        ? 'Planlanan gelir − toplam ödeme'
+                        : 'Henüz gerçekleşmemiş gelir − gelecek ödemeler'),
                     trailing: Text(
-                      _signedMoney(data.plannedNet),
+                      _signedMoney(data.isPastMonth
+                          ? data.plannedNet
+                          : data.remainingProjectedNet),
                       style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
-                        color: data.plannedNet >= 0 ? income : expense,
+                        color: (data.isPastMonth
+                                    ? data.plannedNet
+                                    : data.remainingProjectedNet) >=
+                                0
+                            ? income
+                            : expense,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 22),
-                const Text('Akış', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                const Text(
+                  'Akış',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 10),
                 if (data.entries.isEmpty)
                   const Card(
@@ -237,7 +319,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
     DateTime? previousDate;
 
     for (final entry in entries) {
-      if (previousDate == null || !DateUtils.isSameDay(previousDate, entry.date)) {
+      if (previousDate == null ||
+          !DateUtils.isSameDay(previousDate, entry.date)) {
         if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 12));
         widgets.add(
           Padding(
@@ -256,11 +339,84 @@ class _CashFlowPageState extends State<CashFlowPage> {
     return widgets;
   }
 
-  static String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
+  static String _money(double value) => NumberFormat.currency(
+        locale: 'tr_TR',
+        symbol: '₺',
+        decimalDigits: 2,
+      ).format(value);
 
   static String _signedMoney(double value) {
     final formatted = _money(value.abs());
     return '${value >= 0 ? '+' : '−'}$formatted';
+  }
+}
+
+class _ProjectionCard extends StatelessWidget {
+  final _CashFlowData data;
+
+  const _ProjectionCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.isPastMonth) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Geçmiş ay',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Bugünkü hesap bakiyesi geçmiş aya uygulanmaz. Bu ekranda yalnızca o ayın planlanan ve gerçekleşen akışını görüyorsun.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final opening = data.projectionOpeningBalance!;
+    final closing = data.projectedClosingBalance!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(data.isCurrentMonth ? 'Mevcut toplam bakiye' : 'Aya giriş tahmini'),
+            const SizedBox(height: 8),
+            Text(
+              _CashFlowPageState._money(opening),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Ay sonu tahmini: ${_CashFlowPageState._money(closing)}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (data.isCurrentMonth) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Gerçekleşmiş hareketler mevcut bakiyeye zaten dahil.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -269,13 +425,20 @@ class _MonthHeader extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
-  const _MonthHeader({required this.month, required this.onPrevious, required this.onNext});
+  const _MonthHeader({
+    required this.month,
+    required this.onPrevious,
+    required this.onNext,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(onPressed: onPrevious, icon: const Icon(Icons.chevron_left)),
+        IconButton(
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left),
+        ),
         Expanded(
           child: Text(
             DateFormat('MMMM yyyy', 'tr_TR').format(month),
@@ -283,7 +446,10 @@ class _MonthHeader extends StatelessWidget {
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
         ),
-        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
+        IconButton(
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right),
+        ),
       ],
     );
   }
@@ -320,11 +486,21 @@ class _MetricCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 value,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: accent),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
               ),
             ),
             const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -340,18 +516,34 @@ class _CashFlowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final amount = _CashFlowPageState._money(entry.amount);
-    final projected = _CashFlowPageState._money(entry.projectedBalance);
-    final accent = entry.isIncome ? SemanticColors.incomeFor(context) : SemanticColors.expenseFor(context);
-    final accentSoft = entry.isIncome ? SemanticColors.incomeSoftFor(context) : SemanticColors.expenseSoftFor(context);
+    final accent = entry.isIncome
+        ? SemanticColors.incomeFor(context)
+        : SemanticColors.expenseFor(context);
+    final accentSoft = entry.isIncome
+        ? SemanticColors.incomeSoftFor(context)
+        : SemanticColors.expenseSoftFor(context);
+
+    final String subtitle;
+    if (entry.completed) {
+      subtitle = '${entry.statusLabel} • Mevcut bakiyeye dahil';
+    } else if (entry.affectsProjection && entry.projectedBalance != null) {
+      subtitle =
+          '${entry.statusLabel} • Tahmini bakiye ${_CashFlowPageState._money(entry.projectedBalance!)}';
+    } else {
+      subtitle = '${entry.statusLabel} • Projeksiyona dahil değil';
+    }
 
     return Card(
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: accentSoft,
-          child: Icon(entry.isIncome ? Icons.south_west : Icons.north_east, color: accent),
+          child: Icon(
+            entry.isIncome ? Icons.south_west : Icons.north_east,
+            color: accent,
+          ),
         ),
         title: Text(entry.title),
-        subtitle: Text('${entry.statusLabel} • Tahmini bakiye $projected'),
+        subtitle: Text(subtitle),
         trailing: Text(
           '${entry.isIncome ? '+' : '−'}$amount',
           style: TextStyle(fontWeight: FontWeight.w800, color: accent),
@@ -363,23 +555,31 @@ class _CashFlowTile extends StatelessWidget {
 
 class _CashFlowData {
   final List<_CashFlowEntry> entries;
-  final double openingBalance;
-  final double projectedClosingBalance;
+  final double currentBalance;
+  final double? projectionOpeningBalance;
+  final double? projectedClosingBalance;
+  final bool isPastMonth;
+  final bool isCurrentMonth;
   final double plannedIncome;
   final double receivedIncome;
   final double totalPayments;
   final double remainingPayments;
   final double plannedNet;
+  final double remainingProjectedNet;
 
   const _CashFlowData({
     required this.entries,
-    required this.openingBalance,
+    required this.currentBalance,
+    required this.projectionOpeningBalance,
     required this.projectedClosingBalance,
+    required this.isPastMonth,
+    required this.isCurrentMonth,
     required this.plannedIncome,
     required this.receivedIncome,
     required this.totalPayments,
     required this.remainingPayments,
     required this.plannedNet,
+    required this.remainingProjectedNet,
   });
 }
 
@@ -389,7 +589,8 @@ class _CashFlowEntry {
   final double amount;
   final bool isIncome;
   final bool completed;
-  final double projectedBalance;
+  final bool affectsProjection;
+  final double? projectedBalance;
 
   const _CashFlowEntry({
     required this.date,
@@ -397,7 +598,8 @@ class _CashFlowEntry {
     required this.amount,
     required this.isIncome,
     required this.completed,
-    this.projectedBalance = 0,
+    this.affectsProjection = false,
+    this.projectedBalance,
   });
 
   factory _CashFlowEntry.fromPayment(PaymentItem payment) => _CashFlowEntry(
@@ -408,7 +610,8 @@ class _CashFlowEntry {
         completed: payment.paid,
       );
 
-  factory _CashFlowEntry.fromIncome(IncomeOccurrenceItem income) => _CashFlowEntry(
+  factory _CashFlowEntry.fromIncome(IncomeOccurrenceItem income) =>
+      _CashFlowEntry(
         date: income.expectedDate,
         title: income.name,
         amount: income.amount,
@@ -422,13 +625,18 @@ class _CashFlowEntry {
       ? (completed ? 'Geldi' : 'Bekleniyor')
       : (completed ? 'Ödendi' : 'Bekliyor');
 
-  _CashFlowEntry copyWith({double? projectedBalance}) => _CashFlowEntry(
+  _CashFlowEntry copyWith({
+    double? projectedBalance,
+    bool? affectsProjection,
+  }) =>
+      _CashFlowEntry(
         date: date,
         title: title,
         amount: amount,
         isIncome: isIncome,
         completed: completed,
-        projectedBalance: projectedBalance ?? this.projectedBalance,
+        affectsProjection: affectsProjection ?? this.affectsProjection,
+        projectedBalance: projectedBalance,
       );
 }
 
