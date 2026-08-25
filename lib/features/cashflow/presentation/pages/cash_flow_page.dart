@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../accounts/data/account_repository.dart';
+import '../../../accounts/presentation/pages/accounts_page.dart';
 import '../../../incomes/data/income_repository.dart';
 import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/data/payment_repository.dart';
@@ -15,6 +17,7 @@ class CashFlowPage extends StatefulWidget {
 class _CashFlowPageState extends State<CashFlowPage> {
   final _paymentRepository = PaymentRepository();
   final _incomeRepository = IncomeRepository();
+  final _accountRepository = AccountRepository();
 
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
   late Future<_CashFlowData> _future;
@@ -33,13 +36,13 @@ class _CashFlowPageState extends State<CashFlowPage> {
     final from = DateTime(month.year, month.month, 1);
     final to = DateTime(month.year, month.month + 1, 0);
 
-    final results = await Future.wait([
-      _paymentRepository.getPayments(from: from, to: to),
-      _incomeRepository.fetchMonth(month),
-    ]);
+    final payments = await _paymentRepository.getPayments(from: from, to: to);
+    final incomes = await _incomeRepository.fetchMonth(month);
+    final accounts = await _accountRepository.fetchAll();
 
-    final payments = results[0] as List<PaymentItem>;
-    final incomes = results[1] as List<IncomeOccurrenceItem>;
+    final openingBalance = accounts
+        .where((item) => item.active && item.currency == 'TRY')
+        .fold<double>(0, (sum, item) => sum + item.balance);
 
     final entries = <_CashFlowEntry>[
       ...payments.map(_CashFlowEntry.fromPayment),
@@ -47,15 +50,14 @@ class _CashFlowPageState extends State<CashFlowPage> {
     ]..sort((a, b) {
         final dateCompare = a.date.compareTo(b.date);
         if (dateCompare != 0) return dateCompare;
-        // Aynı gün gelirleri önce göster; gün içi net akış daha okunaklı olsun.
         if (a.isIncome == b.isIncome) return a.title.compareTo(b.title);
         return a.isIncome ? -1 : 1;
       });
 
-    var runningNet = 0.0;
-    final withRunningNet = entries.map((entry) {
-      runningNet += entry.signedAmount;
-      return entry.copyWith(runningNet: runningNet);
+    var projectedBalance = openingBalance;
+    final projectedEntries = entries.map((entry) {
+      projectedBalance += entry.signedAmount;
+      return entry.copyWith(projectedBalance: projectedBalance);
     }).toList();
 
     final plannedIncome = incomes.fold<double>(0, (sum, item) => sum + item.amount);
@@ -68,7 +70,9 @@ class _CashFlowPageState extends State<CashFlowPage> {
         .fold<double>(0, (sum, item) => sum + item.amount);
 
     return _CashFlowData(
-      entries: withRunningNet,
+      entries: projectedEntries,
+      openingBalance: openingBalance,
+      projectedClosingBalance: projectedBalance,
       plannedIncome: plannedIncome,
       receivedIncome: receivedIncome,
       totalPayments: totalPayments,
@@ -84,12 +88,24 @@ class _CashFlowPageState extends State<CashFlowPage> {
     });
   }
 
+  Future<void> _openAccounts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AccountsPage()),
+    );
+    if (mounted) setState(_reload);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nakit Akışı'),
         actions: [
+          IconButton(
+            tooltip: 'Hesaplar',
+            onPressed: _openAccounts,
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+          ),
           IconButton(
             tooltip: 'Yenile',
             onPressed: () => setState(_reload),
@@ -126,6 +142,25 @@ class _CashFlowPageState extends State<CashFlowPage> {
                   onNext: () => _changeMonth(1),
                 ),
                 const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Mevcut toplam bakiye'),
+                        const SizedBox(height: 8),
+                        Text(_money(data.openingBalance), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Ay sonu tahmini: ${_money(data.projectedClosingBalance)}',
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -157,29 +192,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Kümülatif net, ay başında 0 kabul edilerek hesaplanır. Hesap bakiyeleri eklendiğinde bunu gerçek tahmini bakiyeye çevireceğiz.',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 22),
-                const Text(
-                  'Akış',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                ),
+                const Text('Akış', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 10),
                 if (data.entries.isEmpty)
                   const Card(
@@ -222,11 +236,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
     return widgets;
   }
 
-  static String _money(double value) => NumberFormat.currency(
-        locale: 'tr_TR',
-        symbol: '₺',
-        decimalDigits: 2,
-      ).format(value);
+  static String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
 
   static String _signedMoney(double value) {
     final formatted = _money(value.abs());
@@ -239,11 +249,7 @@ class _MonthHeader extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
-  const _MonthHeader({
-    required this.month,
-    required this.onPrevious,
-    required this.onNext,
-  });
+  const _MonthHeader({required this.month, required this.onPrevious, required this.onNext});
 
   @override
   Widget build(BuildContext context) {
@@ -268,11 +274,7 @@ class _MetricCard extends StatelessWidget {
   final String value;
   final String subtitle;
 
-  const _MetricCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-  });
+  const _MetricCard({required this.title, required this.value, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -290,10 +292,7 @@ class _MetricCard extends StatelessWidget {
               child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ],
         ),
       ),
@@ -309,15 +308,13 @@ class _CashFlowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final amount = _CashFlowPageState._money(entry.amount);
-    final running = _CashFlowPageState._signedMoney(entry.runningNet);
+    final projected = _CashFlowPageState._money(entry.projectedBalance);
 
     return Card(
       child: ListTile(
-        leading: CircleAvatar(
-          child: Icon(entry.isIncome ? Icons.south_west : Icons.north_east),
-        ),
+        leading: CircleAvatar(child: Icon(entry.isIncome ? Icons.south_west : Icons.north_east)),
         title: Text(entry.title),
-        subtitle: Text('${entry.statusLabel} • Kümülatif net $running'),
+        subtitle: Text('${entry.statusLabel} • Tahmini bakiye $projected'),
         trailing: Text(
           '${entry.isIncome ? '+' : '−'}$amount',
           style: const TextStyle(fontWeight: FontWeight.w800),
@@ -329,6 +326,8 @@ class _CashFlowTile extends StatelessWidget {
 
 class _CashFlowData {
   final List<_CashFlowEntry> entries;
+  final double openingBalance;
+  final double projectedClosingBalance;
   final double plannedIncome;
   final double receivedIncome;
   final double totalPayments;
@@ -337,6 +336,8 @@ class _CashFlowData {
 
   const _CashFlowData({
     required this.entries,
+    required this.openingBalance,
+    required this.projectedClosingBalance,
     required this.plannedIncome,
     required this.receivedIncome,
     required this.totalPayments,
@@ -351,7 +352,7 @@ class _CashFlowEntry {
   final double amount;
   final bool isIncome;
   final bool completed;
-  final double runningNet;
+  final double projectedBalance;
 
   const _CashFlowEntry({
     required this.date,
@@ -359,7 +360,7 @@ class _CashFlowEntry {
     required this.amount,
     required this.isIncome,
     required this.completed,
-    this.runningNet = 0,
+    this.projectedBalance = 0,
   });
 
   factory _CashFlowEntry.fromPayment(PaymentItem payment) => _CashFlowEntry(
@@ -384,13 +385,13 @@ class _CashFlowEntry {
       ? (completed ? 'Geldi' : 'Bekleniyor')
       : (completed ? 'Ödendi' : 'Bekliyor');
 
-  _CashFlowEntry copyWith({double? runningNet}) => _CashFlowEntry(
+  _CashFlowEntry copyWith({double? projectedBalance}) => _CashFlowEntry(
         date: date,
         title: title,
         amount: amount,
         isIncome: isIncome,
         completed: completed,
-        runningNet: runningNet ?? this.runningNet,
+        projectedBalance: projectedBalance ?? this.projectedBalance,
       );
 }
 
