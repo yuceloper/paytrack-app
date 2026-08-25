@@ -5,6 +5,7 @@ class PaymentItem {
   final double amount;
   final DateTime dueDate;
   final bool recurring;
+  final String? seriesId;
   final int? recurrenceDay;
   final String? recurrenceFrequency;
   final int? recurrenceInterval;
@@ -20,6 +21,7 @@ class PaymentItem {
     required this.amount,
     required this.dueDate,
     required this.recurring,
+    this.seriesId,
     this.recurrenceDay,
     this.recurrenceFrequency,
     this.recurrenceInterval,
@@ -37,6 +39,7 @@ class PaymentItem {
       amount: (json['amount'] as num).toDouble(),
       dueDate: DateTime.parse(json['dueDate'] as String),
       recurring: json['recurring'] as bool? ?? false,
+      seriesId: json['seriesId'] as String?,
       recurrenceDay: (json['recurrenceDay'] as num?)?.toInt(),
       recurrenceFrequency: json['recurrenceFrequency'] as String?,
       recurrenceInterval: (json['recurrenceInterval'] as num?)?.toInt(),
