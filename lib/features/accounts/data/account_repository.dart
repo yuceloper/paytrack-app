@@ -34,6 +34,48 @@ class AccountItem {
       );
 }
 
+class AccountTransactionItem {
+  final int id;
+  final String type;
+  final int accountId;
+  final int? counterAccountId;
+  final double amount;
+  final String currency;
+  final DateTime occurredOn;
+  final String description;
+  final String? sourceType;
+  final int? sourceId;
+  final bool reversed;
+
+  const AccountTransactionItem({
+    required this.id,
+    required this.type,
+    required this.accountId,
+    required this.counterAccountId,
+    required this.amount,
+    required this.currency,
+    required this.occurredOn,
+    required this.description,
+    required this.sourceType,
+    required this.sourceId,
+    required this.reversed,
+  });
+
+  factory AccountTransactionItem.fromJson(Map<String, dynamic> json) => AccountTransactionItem(
+        id: (json['id'] as num).toInt(),
+        type: json['type'] as String,
+        accountId: (json['accountId'] as num).toInt(),
+        counterAccountId: (json['counterAccountId'] as num?)?.toInt(),
+        amount: (json['amount'] as num).toDouble(),
+        currency: json['currency'] as String? ?? 'TRY',
+        occurredOn: DateTime.parse(json['occurredOn'] as String),
+        description: json['description'] as String,
+        sourceType: json['sourceType'] as String?,
+        sourceId: (json['sourceId'] as num?)?.toInt(),
+        reversed: json['reversed'] as bool? ?? false,
+      );
+}
+
 class AccountRepository {
   final http.Client _client;
 
@@ -47,6 +89,22 @@ class AccountRepository {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final data = body['data'] as List<dynamic>? ?? const [];
     return data.map((e) => AccountItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<AccountTransactionItem>> fetchTransactions({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions').replace(queryParameters: {
+      'userId': AppConfig.demoUserId.toString(),
+      'from': _date(from),
+      'to': _date(to),
+    });
+    final response = await _client.get(uri);
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as List<dynamic>? ?? const [];
+    return data.map((e) => AccountTransactionItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> create({
@@ -109,11 +167,11 @@ class AccountRepository {
   }
 
   Future<void> delete(int id) async {
-    final response = await _client.delete(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts/$id'),
-    );
+    final response = await _client.delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts/$id'));
     _ensureSuccess(response, allowNoContent: true);
   }
+
+  String _date(DateTime value) => value.toIso8601String().split('T').first;
 
   void _ensureSuccess(http.Response response, {bool allowNoContent = false}) {
     final ok = response.statusCode >= 200 && response.statusCode < 300;
