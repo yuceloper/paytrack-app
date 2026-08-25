@@ -11,7 +11,6 @@ class PaymentRepository {
 
   Future<List<PaymentItem>> getPayments({required DateTime from, required DateTime to}) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments').replace(queryParameters: {
-      'userId': AppConfig.demoUserId.toString(),
       'from': _date(from),
       'to': _date(to),
     });
@@ -129,7 +128,6 @@ class PaymentRepository {
     String? institution,
     String? note,
   }) => {
-        'userId': AppConfig.demoUserId,
         'name': name,
         'type': type,
         'amount': amount,
