@@ -89,7 +89,7 @@ class _IncomesPageState extends State<IncomesPage> {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _MetricCard(title: 'Beklenen', value: _money(expected))),
+                        Expanded(child: _MetricCard(title: 'Planlanan', value: _money(expected))),
                         const SizedBox(width: 12),
                         Expanded(child: _MetricCard(title: 'Gelen', value: _money(received))),
                       ],
