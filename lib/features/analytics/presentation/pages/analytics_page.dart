@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../data/analytics_repository.dart';
 
 class AnalyticsPage extends StatefulWidget {
@@ -96,9 +97,23 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Expanded(child: _MetricCard(title: 'Gelir', value: _money(data.totalIncome))),
+                    Expanded(
+                      child: _MetricCard(
+                        title: 'Gelir',
+                        value: _money(data.totalIncome),
+                        accent: SemanticColors.income,
+                        accentSoft: SemanticColors.incomeSoft,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _MetricCard(title: 'Gider', value: _money(data.totalExpense))),
+                    Expanded(
+                      child: _MetricCard(
+                        title: 'Gider',
+                        value: _money(data.totalExpense),
+                        accent: SemanticColors.expense,
+                        accentSoft: SemanticColors.expenseSoft,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -106,6 +121,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   title: 'Net nakit',
                   value: _signedMoney(data.netCashFlow),
                   subtitle: '${data.transactionCount} gerçekleşmiş hareket',
+                  accent: data.netCashFlow >= 0 ? SemanticColors.income : SemanticColors.expense,
+                  accentSoft: data.netCashFlow >= 0 ? SemanticColors.incomeSoft : SemanticColors.expenseSoft,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -115,6 +132,16 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         title: 'Geçen aya göre',
                         value: _changeLabel(data.expenseChangePercent),
                         subtitle: 'Geçen ay ${_money(data.previousMonthExpense)}',
+                        accent: data.expenseChangePercent == null
+                            ? null
+                            : data.expenseChangePercent! <= 0
+                                ? SemanticColors.income
+                                : SemanticColors.expense,
+                        accentSoft: data.expenseChangePercent == null
+                            ? null
+                            : data.expenseChangePercent! <= 0
+                                ? SemanticColors.incomeSoft
+                                : SemanticColors.expenseSoft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -187,12 +214,21 @@ class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
   final String? subtitle;
+  final Color? accent;
+  final Color? accentSoft;
 
-  const _MetricCard({required this.title, required this.value, this.subtitle});
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.accent,
+    this.accentSoft,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: accentSoft,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -205,7 +241,11 @@ class _MetricCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 value,
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
               ),
             ),
             if (subtitle != null) ...[
@@ -246,12 +286,19 @@ class _CategoryBar extends StatelessWidget {
                 ),
                 Text(
                   _AnalyticsPageState._money(item.amount),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: SemanticColors.expense,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            LinearProgressIndicator(value: progress),
+            LinearProgressIndicator(
+              value: progress,
+              color: SemanticColors.expense,
+              backgroundColor: SemanticColors.expenseSoft,
+            ),
             const SizedBox(height: 6),
             Text('%${item.percentage.toStringAsFixed(1)}'),
           ],
