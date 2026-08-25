@@ -255,7 +255,7 @@ class _MonthGrid extends StatelessWidget {
                   final index = row * 7 + column;
                   final day = index - leading + 1;
                   if (day < 1 || day > days) {
-                    return const Expanded(child: SizedBox(height: 50));
+                    return const Expanded(child: SizedBox(height: 54));
                   }
 
                   final date = DateTime(month.year, month.month, day);
@@ -269,13 +269,13 @@ class _MonthGrid extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       onTap: () => onSelected(date),
                       child: SizedBox(
-                        height: 50,
+                        height: 54,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 32,
-                              height: 32,
+                              width: 30,
+                              height: 30,
                               alignment: Alignment.center,
                               decoration: selected
                                   ? BoxDecoration(
@@ -291,21 +291,21 @@ class _MonthGrid extends StatelessWidget {
                               ),
                             ),
                             SizedBox(
-                              height: 6,
+                              height: 14,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   if (hasIncome)
                                     Icon(
-                                      Icons.circle,
-                                      size: 5,
+                                      Icons.arrow_upward,
+                                      size: 12,
                                       color: Theme.of(context).colorScheme.tertiary,
                                     ),
-                                  if (hasIncome && hasPayment) const SizedBox(width: 3),
+                                  if (hasIncome && hasPayment) const SizedBox(width: 2),
                                   if (hasPayment)
                                     Icon(
-                                      Icons.circle,
-                                      size: 5,
+                                      Icons.arrow_downward,
+                                      size: 12,
                                       color: Theme.of(context).colorScheme.primary,
                                     ),
                                 ],
