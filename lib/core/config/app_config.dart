@@ -1,3 +1,5 @@
+import '../auth/session_store.dart';
+
 class AppConfig {
   AppConfig._();
 
@@ -6,8 +8,5 @@ class AppConfig {
     defaultValue: 'http://192.168.1.130:8080',
   );
 
-  static const int demoUserId = int.fromEnvironment(
-    'USER_ID',
-    defaultValue: 1,
-  );
+  static int get demoUserId => SessionStore.userId ?? 1;
 }
