@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -14,6 +15,7 @@ class AuthSessionService {
   static const _accessTokenKey = 'auth.accessToken';
   static const _refreshTokenKey = 'auth.refreshToken';
   static const _guestKey = 'auth.guest';
+  static const _bootstrapTimeout = Duration(seconds: 8);
 
   static Future<void> initialize() async {
     final userId = int.tryParse(await _storage.read(key: _userIdKey) ?? '');
@@ -31,7 +33,12 @@ class AuthSessionService {
       return;
     }
 
-    await _createGuestSession();
+    await _createGuestSession().timeout(
+      _bootstrapTimeout,
+      onTimeout: () => throw TimeoutException(
+        'PayTrack sunucusuna ${_bootstrapTimeout.inSeconds} saniye içinde ulaşılamadı.',
+      ),
+    );
   }
 
   static Future<void> _createGuestSession() async {
