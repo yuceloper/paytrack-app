@@ -40,9 +40,7 @@ class IncomeSourceItem {
         frequency: json['frequency'] as String,
         recurrenceDay: (json['recurrenceDay'] as num?)?.toInt(),
         recurrenceInterval: (json['recurrenceInterval'] as num?)?.toInt(),
-        recurrenceEndDate: json['recurrenceEndDate'] == null
-            ? null
-            : DateTime.parse(json['recurrenceEndDate'] as String),
+        recurrenceEndDate: json['recurrenceEndDate'] == null ? null : DateTime.parse(json['recurrenceEndDate'] as String),
         nextIncomeDate: DateTime.parse(json['nextIncomeDate'] as String),
         active: json['active'] as bool? ?? true,
       );
@@ -50,6 +48,7 @@ class IncomeSourceItem {
 
 class IncomeOccurrenceItem {
   final int id;
+  final int incomeSourceId;
   final String name;
   final double amount;
   final String currency;
@@ -58,6 +57,7 @@ class IncomeOccurrenceItem {
 
   const IncomeOccurrenceItem({
     required this.id,
+    required this.incomeSourceId,
     required this.name,
     required this.amount,
     required this.currency,
@@ -67,6 +67,7 @@ class IncomeOccurrenceItem {
 
   factory IncomeOccurrenceItem.fromJson(Map<String, dynamic> json) => IncomeOccurrenceItem(
         id: (json['id'] as num).toInt(),
+        incomeSourceId: (json['incomeSourceId'] as num).toInt(),
         name: json['name'] as String,
         amount: (json['amount'] as num).toDouble(),
         currency: json['currency'] as String,
@@ -83,11 +84,15 @@ class IncomeRepository {
   Future<List<IncomeOccurrenceItem>> fetchMonth(DateTime month) async {
     final from = DateTime(month.year, month.month, 1);
     final to = DateTime(month.year, month.month + 1, 0);
-    final uri = Uri.parse(
-      '${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences?userId=${AppConfig.demoUserId}&from=${_date(from)}&to=${_date(to)}',
-    );
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences?userId=${AppConfig.demoUserId}&from=${_date(from)}&to=${_date(to)}');
     final data = await _getData(uri) as List<dynamic>;
     return data.map((e) => IncomeOccurrenceItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<IncomeSourceItem>> fetchSources() async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources?userId=${AppConfig.demoUserId}');
+    final data = await _getData(uri) as List<dynamic>;
+    return data.map((e) => IncomeSourceItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> createSource({
@@ -101,29 +106,52 @@ class IncomeRepository {
   }) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources');
     final monthlyAnchor = frequency == 'MONTHLY' || frequency == 'CUSTOM_MONTHS';
-    final response = await _client.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'userId': AppConfig.demoUserId,
-        'name': name,
-        'type': type,
-        'amount': amount,
-        'currency': 'TRY',
-        'frequency': frequency,
-        'recurrenceDay': monthlyAnchor ? nextIncomeDate.day : null,
-        'recurrenceInterval': frequency == 'ONE_TIME' ? null : (recurrenceInterval ?? 1),
-        'recurrenceEndDate': recurrenceEndDate == null ? null : _date(recurrenceEndDate),
-        'nextIncomeDate': _date(nextIncomeDate),
-      }),
-    );
+    final response = await _client.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({
+      'userId': AppConfig.demoUserId,
+      'name': name,
+      'type': type,
+      'amount': amount,
+      'currency': 'TRY',
+      'frequency': frequency,
+      'recurrenceDay': monthlyAnchor ? nextIncomeDate.day : null,
+      'recurrenceInterval': frequency == 'ONE_TIME' ? null : (recurrenceInterval ?? 1),
+      'recurrenceEndDate': recurrenceEndDate == null ? null : _date(recurrenceEndDate),
+      'nextIncomeDate': _date(nextIncomeDate),
+    }));
     _ensureSuccess(response);
   }
 
+  Future<void> updateOccurrence({
+    required int id,
+    required String scope,
+    required String name,
+    required double amount,
+    required DateTime expectedDate,
+    required String frequency,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
+  }) async {
+    final monthlyAnchor = frequency == 'MONTHLY' || frequency == 'CUSTOM_MONTHS';
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id').replace(queryParameters: {'scope': scope});
+    final response = await _client.put(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({
+      'name': name,
+      'amount': amount,
+      'expectedDate': _date(expectedDate),
+      'frequency': frequency,
+      'recurrenceDay': monthlyAnchor ? expectedDate.day : null,
+      'recurrenceInterval': frequency == 'ONE_TIME' ? null : (recurrenceInterval ?? 1),
+      'recurrenceEndDate': recurrenceEndDate == null ? null : _date(recurrenceEndDate),
+    }));
+    _ensureSuccess(response);
+  }
+
+  Future<void> deleteOccurrence(int id, {required String scope}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id').replace(queryParameters: {'scope': scope});
+    _ensureSuccess(await _client.delete(uri));
+  }
+
   Future<void> markReceived(int id, {int? accountId}) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received').replace(
-      queryParameters: accountId == null ? null : {'accountId': accountId.toString()},
-    );
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received').replace(queryParameters: accountId == null ? null : {'accountId': accountId.toString()});
     _ensureSuccess(await _client.patch(uri));
   }
 
