@@ -35,6 +35,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
+      await _store.save(_preferences);
+
+      if (!_preferences.enabled) {
+        await NotificationService.instance.clearPayTrackReminders();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bildirimler kapatıldı ve planlanan hatırlatmalar temizlendi')),
+        );
+        return;
+      }
+
       final granted = await NotificationService.instance.requestPermission();
       if (!granted) {
         if (!mounted) return;
@@ -44,7 +55,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         return;
       }
 
-      await _store.save(_preferences);
       final count = await ReminderSyncService().sync();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,82 +83,123 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
               children: [
-                const Text(
-                  'Ödemeler',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                _ReminderCard(
-                  title: '1 gün önce',
-                  subtitle: 'Ödeme tarihinden bir gün önce hatırlat',
-                  enabled: _preferences.dayBeforeEnabled,
-                  time: _preferences.dayBeforeTime,
-                  onEnabledChanged: (value) => setState(() {
-                    _preferences = _preferences.copyWith(dayBeforeEnabled: value);
-                  }),
-                  onTimeTap: () async {
-                    final picked = await _pickTime(_preferences.dayBeforeTime);
-                    if (picked != null && mounted) {
-                      setState(() => _preferences = _preferences.copyWith(dayBeforeTime: picked));
-                    }
-                  },
-                ),
-                _ReminderCard(
-                  title: 'Ödeme günü',
-                  subtitle: 'Vade günü tekrar hatırlat',
-                  enabled: _preferences.dueDayEnabled,
-                  time: _preferences.dueDayTime,
-                  onEnabledChanged: (value) => setState(() {
-                    _preferences = _preferences.copyWith(dueDayEnabled: value);
-                  }),
-                  onTimeTap: () async {
-                    final picked = await _pickTime(_preferences.dueDayTime);
-                    if (picked != null && mounted) {
-                      setState(() => _preferences = _preferences.copyWith(dueDayTime: picked));
-                    }
-                  },
-                ),
-                _ReminderCard(
-                  title: 'Gecikince',
-                  subtitle: 'Ödeme hâlâ bekliyorsa ertesi gün uyar',
-                  enabled: _preferences.overdueEnabled,
-                  time: _preferences.overdueTime,
-                  onEnabledChanged: (value) => setState(() {
-                    _preferences = _preferences.copyWith(overdueEnabled: value);
-                  }),
-                  onTimeTap: () async {
-                    final picked = await _pickTime(_preferences.overdueTime);
-                    if (picked != null && mounted) {
-                      setState(() => _preferences = _preferences.copyWith(overdueTime: picked));
-                    }
-                  },
+                Card(
+                  child: SwitchListTile.adaptive(
+                    value: _preferences.enabled,
+                    onChanged: (value) => setState(() {
+                      _preferences = _preferences.copyWith(enabled: value);
+                    }),
+                    secondary: Icon(
+                      _preferences.enabled
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_off_outlined,
+                    ),
+                    title: const Text(
+                      'Bildirimler',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      _preferences.enabled
+                          ? 'Ödeme ve gelir hatırlatmaları açık'
+                          : 'Tüm PayTrack hatırlatmaları kapalı',
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 22),
-                const Text(
-                  'Gelirler',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                _ReminderCard(
-                  title: 'Gelir günü',
-                  subtitle: 'Beklenen gelir tarihinde hatırlat',
-                  enabled: _preferences.incomeDayEnabled,
-                  time: _preferences.incomeDayTime,
-                  onEnabledChanged: (value) => setState(() {
-                    _preferences = _preferences.copyWith(incomeDayEnabled: value);
-                  }),
-                  onTimeTap: () async {
-                    final picked = await _pickTime(_preferences.incomeDayTime);
-                    if (picked != null && mounted) {
-                      setState(() => _preferences = _preferences.copyWith(incomeDayTime: picked));
-                    }
-                  },
+                AnimatedOpacity(
+                  opacity: _preferences.enabled ? 1 : 0.45,
+                  duration: const Duration(milliseconds: 180),
+                  child: IgnorePointer(
+                    ignoring: !_preferences.enabled,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Ödemeler',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 10),
+                        _ReminderCard(
+                          title: '1 gün önce',
+                          subtitle: 'Ödeme tarihinden bir gün önce hatırlat',
+                          enabled: _preferences.dayBeforeEnabled,
+                          time: _preferences.dayBeforeTime,
+                          onEnabledChanged: (value) => setState(() {
+                            _preferences = _preferences.copyWith(dayBeforeEnabled: value);
+                          }),
+                          onTimeTap: () async {
+                            final picked = await _pickTime(_preferences.dayBeforeTime);
+                            if (picked != null && mounted) {
+                              setState(() => _preferences = _preferences.copyWith(dayBeforeTime: picked));
+                            }
+                          },
+                        ),
+                        _ReminderCard(
+                          title: 'Ödeme günü',
+                          subtitle: 'Vade günü tekrar hatırlat',
+                          enabled: _preferences.dueDayEnabled,
+                          time: _preferences.dueDayTime,
+                          onEnabledChanged: (value) => setState(() {
+                            _preferences = _preferences.copyWith(dueDayEnabled: value);
+                          }),
+                          onTimeTap: () async {
+                            final picked = await _pickTime(_preferences.dueDayTime);
+                            if (picked != null && mounted) {
+                              setState(() => _preferences = _preferences.copyWith(dueDayTime: picked));
+                            }
+                          },
+                        ),
+                        _ReminderCard(
+                          title: 'Gecikince',
+                          subtitle: 'Ödeme hâlâ bekliyorsa ertesi gün uyar',
+                          enabled: _preferences.overdueEnabled,
+                          time: _preferences.overdueTime,
+                          onEnabledChanged: (value) => setState(() {
+                            _preferences = _preferences.copyWith(overdueEnabled: value);
+                          }),
+                          onTimeTap: () async {
+                            final picked = await _pickTime(_preferences.overdueTime);
+                            if (picked != null && mounted) {
+                              setState(() => _preferences = _preferences.copyWith(overdueTime: picked));
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 22),
+                        const Text(
+                          'Gelirler',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 10),
+                        _ReminderCard(
+                          title: 'Gelir günü',
+                          subtitle: 'Beklenen gelir tarihinde hatırlat',
+                          enabled: _preferences.incomeDayEnabled,
+                          time: _preferences.incomeDayTime,
+                          onEnabledChanged: (value) => setState(() {
+                            _preferences = _preferences.copyWith(incomeDayEnabled: value);
+                          }),
+                          onTimeTap: () async {
+                            final picked = await _pickTime(_preferences.incomeDayTime);
+                            if (picked != null && mounted) {
+                              setState(() => _preferences = _preferences.copyWith(incomeDayTime: picked));
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: _saving ? null : _save,
-                  icon: const Icon(Icons.check),
-                  label: Text(_saving ? 'Kaydediliyor...' : 'Kaydet ve planla'),
+                  icon: Icon(_preferences.enabled ? Icons.check : Icons.notifications_off_outlined),
+                  label: Text(
+                    _saving
+                        ? 'Kaydediliyor...'
+                        : _preferences.enabled
+                            ? 'Kaydet ve planla'
+                            : 'Kaydet ve bildirimleri kapat',
+                  ),
                 ),
               ],
             ),
