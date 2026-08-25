@@ -85,13 +85,16 @@ class IncomeRepository {
   Future<List<IncomeOccurrenceItem>> fetchMonth(DateTime month) async {
     final from = DateTime(month.year, month.month, 1);
     final to = DateTime(month.year, month.month + 1, 0);
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences?userId=${AppConfig.demoUserId}&from=${_date(from)}&to=${_date(to)}');
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences').replace(queryParameters: {
+      'from': _date(from),
+      'to': _date(to),
+    });
     final data = await _getData(uri) as List<dynamic>;
     return data.map((e) => IncomeOccurrenceItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<IncomeSourceItem>> fetchSources() async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources?userId=${AppConfig.demoUserId}');
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources');
     final data = await _getData(uri) as List<dynamic>;
     return data.map((e) => IncomeSourceItem.fromJson(e as Map<String, dynamic>)).toList();
   }
@@ -108,7 +111,6 @@ class IncomeRepository {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources');
     final monthlyAnchor = frequency == 'MONTHLY' || frequency == 'CUSTOM_MONTHS';
     final response = await _client.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({
-      'userId': AppConfig.demoUserId,
       'name': name,
       'type': type,
       'amount': amount,
