@@ -4,26 +4,19 @@ import '../../../core/config/app_config.dart';
 import 'models/payment_item.dart';
 
 class PaymentRepository {
-  Future<List<PaymentItem>> getPayments({
-    required DateTime from,
-    required DateTime to,
-  }) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments').replace(
-      queryParameters: {
-        'userId': AppConfig.demoUserId.toString(),
-        'from': _date(from),
-        'to': _date(to),
-      },
-    );
+  Future<List<PaymentItem>> getPayments({required DateTime from, required DateTime to}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments').replace(queryParameters: {
+      'userId': AppConfig.demoUserId.toString(),
+      'from': _date(from),
+      'to': _date(to),
+    });
     final response = await http.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Ödemeler alınamadı (${response.statusCode})');
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final data = body['data'] as List<dynamic>? ?? const [];
-    return data
-        .map((item) => PaymentItem.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return data.map((item) => PaymentItem.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   Future<void> createPayment({
@@ -39,16 +32,7 @@ class PaymentRepository {
     final response = await http.post(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(_payload(
-        name: name,
-        type: type,
-        amount: amount,
-        dueDate: dueDate,
-        recurring: recurring,
-        recurrenceDay: recurrenceDay,
-        institution: institution,
-        note: note,
-      )),
+      body: jsonEncode(_payload(name: name, type: type, amount: amount, dueDate: dueDate, recurring: recurring, recurrenceDay: recurrenceDay, institution: institution, note: note)),
     );
     _ensureSuccess(response, 'Ödeme kaydedilemedi');
   }
@@ -67,38 +51,26 @@ class PaymentRepository {
     final response = await http.put(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(_payload(
-        name: name,
-        type: type,
-        amount: amount,
-        dueDate: dueDate,
-        recurring: recurring,
-        recurrenceDay: recurrenceDay,
-        institution: institution,
-        note: note,
-      )),
+      body: jsonEncode(_payload(name: name, type: type, amount: amount, dueDate: dueDate, recurring: recurring, recurrenceDay: recurrenceDay, institution: institution, note: note)),
     );
     _ensureSuccess(response, 'Ödeme güncellenemedi');
   }
 
-  Future<void> markPaid(int id) async {
-    final response = await http.patch(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/paid'),
+  Future<void> markPaid(int id, {int? accountId}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/paid').replace(
+      queryParameters: accountId == null ? null : {'accountId': accountId.toString()},
     );
+    final response = await http.patch(uri);
     _ensureSuccess(response, 'Ödeme tamamlanamadı');
   }
 
   Future<void> markPending(int id) async {
-    final response = await http.patch(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/pending'),
-    );
+    final response = await http.patch(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/pending'));
     _ensureSuccess(response, 'Ödeme bekliyor durumuna alınamadı');
   }
 
   Future<void> deletePayment(int id) async {
-    final response = await http.delete(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'),
-    );
+    final response = await http.delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'));
     _ensureSuccess(response, 'Ödeme silinemedi');
   }
 
@@ -111,19 +83,17 @@ class PaymentRepository {
     int? recurrenceDay,
     String? institution,
     String? note,
-  }) {
-    return {
-      'userId': AppConfig.demoUserId,
-      'name': name,
-      'type': type,
-      'amount': amount,
-      'dueDate': _date(dueDate),
-      'recurring': recurring,
-      'recurrenceDay': recurring ? recurrenceDay : null,
-      'institution': institution,
-      'note': note,
-    };
-  }
+  }) => {
+        'userId': AppConfig.demoUserId,
+        'name': name,
+        'type': type,
+        'amount': amount,
+        'dueDate': _date(dueDate),
+        'recurring': recurring,
+        'recurrenceDay': recurring ? recurrenceDay : null,
+        'institution': institution,
+        'note': note,
+      };
 
   String _date(DateTime value) => value.toIso8601String().split('T').first;
 
