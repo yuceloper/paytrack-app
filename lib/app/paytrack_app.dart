@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../features/dashboard/presentation/pages/dashboard_page.dart';
+import 'main_shell.dart';
 
 class PayTrackApp extends StatelessWidget {
   const PayTrackApp({super.key});
@@ -14,7 +14,7 @@ class PayTrackApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3157D5)),
         scaffoldBackgroundColor: const Color(0xFFF6F7FB),
       ),
-      home: const DashboardPage(),
+      home: const MainShell(),
     );
   }
 }
