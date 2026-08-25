@@ -59,6 +59,7 @@ class PaymentRepository {
     required double amount,
     required DateTime dueDate,
     required bool recurring,
+    String scope = 'THIS',
     int? recurrenceDay,
     String? recurrenceFrequency,
     int? recurrenceInterval,
@@ -66,8 +67,11 @@ class PaymentRepository {
     String? institution,
     String? note,
   }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id').replace(
+      queryParameters: {'scope': scope},
+    );
     final response = await http.put(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'),
+      uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(_payload(
         name: name,
@@ -99,8 +103,11 @@ class PaymentRepository {
     _ensureSuccess(response, 'Ödeme bekliyor durumuna alınamadı');
   }
 
-  Future<void> deletePayment(int id) async {
-    final response = await http.delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'));
+  Future<void> deletePayment(int id, {String scope = 'THIS'}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id').replace(
+      queryParameters: {'scope': scope},
+    );
+    final response = await http.delete(uri);
     _ensureSuccess(response, 'Ödeme silinemedi');
   }
 
