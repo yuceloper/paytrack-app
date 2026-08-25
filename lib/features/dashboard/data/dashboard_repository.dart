@@ -20,11 +20,9 @@ class DashboardRepository {
   DashboardRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<DashboardData> fetchDashboard({int? userId}) async {
-    final resolvedUserId = userId ?? AppConfig.demoUserId;
-
     final results = await Future.wait([
-      _get('/api/v1/dashboard/summary?userId=$resolvedUserId'),
-      _get('/api/v1/payments/upcoming?userId=$resolvedUserId&days=7'),
+      _get('/api/v1/dashboard/summary'),
+      _get('/api/v1/payments/upcoming?days=7'),
     ]);
 
     final summaryEnvelope = results[0] as Map<String, dynamic>;
