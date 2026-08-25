@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../../incomes/data/income_repository.dart';
 import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/data/payment_repository.dart';
@@ -168,13 +169,13 @@ class _Legend extends StatelessWidget {
         _LegendItem(
           icon: Icons.arrow_upward,
           label: 'Gelir',
-          color: Theme.of(context).colorScheme.tertiary,
+          color: SemanticColors.incomeFor(context),
         ),
         const SizedBox(width: 18),
         _LegendItem(
           icon: Icons.arrow_downward,
           label: 'Ödeme',
-          color: Theme.of(context).colorScheme.primary,
+          color: SemanticColors.expenseFor(context),
         ),
       ],
     );
@@ -299,14 +300,14 @@ class _MonthGrid extends StatelessWidget {
                                     Icon(
                                       Icons.arrow_upward,
                                       size: 12,
-                                      color: Theme.of(context).colorScheme.tertiary,
+                                      color: SemanticColors.incomeFor(context),
                                     ),
                                   if (hasIncome && hasPayment) const SizedBox(width: 2),
                                   if (hasPayment)
                                     Icon(
                                       Icons.arrow_downward,
                                       size: 12,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: SemanticColors.expenseFor(context),
                                     ),
                                 ],
                               ),
@@ -338,17 +339,20 @@ class _IncomeCard extends StatelessWidget {
       decimalDigits: 2,
     ).format(income.amount);
 
+    final accent = SemanticColors.incomeFor(context);
+
     return Card(
       child: ListTile(
-        leading: Icon(
-          income.received ? Icons.check_circle : Icons.south_west,
-          color: Theme.of(context).colorScheme.tertiary,
+        leading: CircleAvatar(
+          backgroundColor: SemanticColors.incomeSoftFor(context),
+          foregroundColor: accent,
+          child: Icon(income.received ? Icons.check : Icons.south_west),
         ),
         title: Text(income.name),
         subtitle: Text(income.received ? 'Gelir · Geldi' : 'Gelir · Bekleniyor'),
         trailing: Text(
           amount,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: FontWeight.w700, color: accent),
         ),
       ),
     );
@@ -369,6 +373,13 @@ class _PaymentCard extends StatelessWidget {
       decimalDigits: 2,
     ).format(payment.amount);
 
+    final accent = payment.paid
+        ? SemanticColors.incomeFor(context)
+        : SemanticColors.expenseFor(context);
+    final soft = payment.paid
+        ? SemanticColors.incomeSoftFor(context)
+        : SemanticColors.expenseSoftFor(context);
+
     return Card(
       child: ListTile(
         onTap: () async {
@@ -378,12 +389,16 @@ class _PaymentCard extends StatelessWidget {
           );
           if (changed == true) onChanged();
         },
-        leading: Icon(payment.paid ? Icons.check_circle : Icons.schedule),
+        leading: CircleAvatar(
+          backgroundColor: soft,
+          foregroundColor: accent,
+          child: Icon(payment.paid ? Icons.check : Icons.schedule),
+        ),
         title: Text(payment.name),
         subtitle: Text(payment.paid ? 'Ödeme · Ödendi' : 'Ödeme · Bekliyor'),
         trailing: Text(
           amount,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: FontWeight.w700, color: accent),
         ),
       ),
     );
