@@ -59,6 +59,14 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    var scope = 'THIS';
+    if (widget.isEditing && widget.payment!.seriesId != null) {
+      final selected = await _selectSeriesScope();
+      if (selected == null || !mounted) return;
+      scope = selected;
+    }
+
     setState(() => _saving = true);
     try {
       final interval = _recurring ? int.parse(_intervalController.text) : null;
@@ -84,6 +92,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
           amount: args.amount,
           dueDate: args.dueDate,
           recurring: args.recurring,
+          scope: scope,
           recurrenceDay: args.recurrenceDay,
           recurrenceFrequency: args.recurrenceFrequency,
           recurrenceInterval: args.recurrenceInterval,
@@ -115,6 +124,47 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  Future<String?> _selectSeriesScope() => showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Hangi ödemeler değişsin?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(
+                  'Ödenmiş geçmiş kayıtlar toplu değişikliklerde korunur.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                ListTile(
+                  leading: const Icon(Icons.looks_one_outlined),
+                  title: const Text('Sadece bu ödeme'),
+                  subtitle: const Text('Serinin diğer tarihleri değişmez'),
+                  onTap: () => Navigator.pop(context, 'THIS'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.trending_flat),
+                  title: const Text('Bu ve sonraki ödemeler'),
+                  subtitle: const Text('Bu tarihten itibaren bekleyen kayıtları günceller'),
+                  onTap: () => Navigator.pop(context, 'THIS_AND_FUTURE'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.all_inclusive),
+                  title: const Text('Tüm seri'),
+                  subtitle: const Text('Bekleyen tüm seri kayıtlarını günceller'),
+                  onTap: () => Navigator.pop(context, 'ALL'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 
   bool get _usesMonthlyAnchor =>
       _recurrenceFrequency == 'MONTHLY' || _recurrenceFrequency == 'CUSTOM_MONTHS';
