@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../../accounts/presentation/widgets/account_picker.dart';
 import '../../data/income_repository.dart';
 
@@ -94,15 +95,27 @@ class _IncomesPageState extends State<IncomesPage> {
                     Row(children: [
                       Expanded(child: _MetricCard(title: 'Planlanan', value: _money(planned))),
                       const SizedBox(width: 12),
-                      Expanded(child: _MetricCard(title: 'Gelen', value: _money(received))),
+                      Expanded(child: _MetricCard(title: 'Gelen', value: _money(received), emphasized: true)),
                     ]),
                     const SizedBox(height: 18),
                     ...items.map((item) => Card(
                           child: ListTile(
-                            leading: CircleAvatar(child: Icon(item.received ? Icons.check : Icons.south_west)),
+                            leading: CircleAvatar(
+                              backgroundColor: SemanticColors.incomeSoft,
+                              child: Icon(
+                                item.received ? Icons.check : Icons.south_west,
+                                color: SemanticColors.income,
+                              ),
+                            ),
                             title: Text(item.name, style: TextStyle(decoration: item.received ? TextDecoration.lineThrough : null)),
                             subtitle: Text('${DateFormat('d MMMM', 'tr_TR').format(item.expectedDate)} • ${item.received ? 'Geldi' : 'Bekleniyor'}'),
-                            trailing: Text(_money(item.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                            trailing: Text(
+                              _money(item.amount),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: SemanticColors.income,
+                              ),
+                            ),
                             onTap: item.received ? null : () => _receive(item),
                           ),
                         )),
@@ -122,16 +135,28 @@ class _IncomesPageState extends State<IncomesPage> {
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
-  const _MetricCard({required this.title, required this.value});
+  final bool emphasized;
+
+  const _MetricCard({required this.title, required this.value, this.emphasized = false});
 
   @override
   Widget build(BuildContext context) => Card(
+        color: emphasized ? SemanticColors.incomeSoft : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title),
             const SizedBox(height: 8),
-            FittedBox(child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+            FittedBox(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: emphasized ? SemanticColors.income : null,
+                ),
+              ),
+            ),
           ]),
         ),
       );
