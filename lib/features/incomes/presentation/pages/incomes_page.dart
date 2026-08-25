@@ -101,19 +101,19 @@ class _IncomesPageState extends State<IncomesPage> {
                     ...items.map((item) => Card(
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: SemanticColors.incomeSoft,
+                              backgroundColor: SemanticColors.incomeSoftFor(context),
                               child: Icon(
                                 item.received ? Icons.check : Icons.south_west,
-                                color: SemanticColors.income,
+                                color: SemanticColors.incomeFor(context),
                               ),
                             ),
                             title: Text(item.name, style: TextStyle(decoration: item.received ? TextDecoration.lineThrough : null)),
                             subtitle: Text('${DateFormat('d MMMM', 'tr_TR').format(item.expectedDate)} • ${item.received ? 'Geldi' : 'Bekleniyor'}'),
                             trailing: Text(
                               _money(item.amount),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
-                                color: SemanticColors.income,
+                                color: SemanticColors.incomeFor(context),
                               ),
                             ),
                             onTap: item.received ? null : () => _receive(item),
@@ -141,7 +141,7 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        color: emphasized ? SemanticColors.incomeSoft : null,
+        color: emphasized ? SemanticColors.incomeSoftFor(context) : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -153,7 +153,7 @@ class _MetricCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: emphasized ? SemanticColors.income : null,
+                  color: emphasized ? SemanticColors.incomeFor(context) : null,
                 ),
               ),
             ),
