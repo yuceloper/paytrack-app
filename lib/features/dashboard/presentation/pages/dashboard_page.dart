@@ -85,9 +85,10 @@ class DashboardPage extends ConsumerWidget {
 
     try {
       final count = await ReminderSyncService().sync();
+      await NotificationService.instance.scheduleTestNotification();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$count hatırlatma planlandı')),
+        SnackBar(content: Text('$count hatırlatma planlandı • test 10 sn sonra')),
       );
     } catch (_) {
       if (!context.mounted) return;
