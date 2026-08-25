@@ -88,6 +88,26 @@ class AccountRepository {
     _ensureSuccess(response);
   }
 
+  Future<void> transfer({
+    required int fromAccountId,
+    required int toAccountId,
+    required double amount,
+    required String description,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions/transfer'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'userId': AppConfig.demoUserId,
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amount': amount,
+        'description': description,
+      }),
+    );
+    _ensureSuccess(response);
+  }
+
   Future<void> delete(int id) async {
     final response = await _client.delete(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts/$id'),
