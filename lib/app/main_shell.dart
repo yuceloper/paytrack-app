@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/calendar/presentation/pages/calendar_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../features/incomes/presentation/pages/incomes_page.dart';
 import '../features/payments/presentation/pages/payments_page.dart';
 
 class MainShell extends StatefulWidget {
@@ -18,6 +19,7 @@ class _MainShellState extends State<MainShell> {
     DashboardPage(),
     CalendarPage(),
     PaymentsPage(),
+    IncomesPage(),
   ];
 
   @override
@@ -31,6 +33,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Ana Sayfa'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Takvim'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Ödemeler'),
+          NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'Gelirler'),
         ],
       ),
     );
