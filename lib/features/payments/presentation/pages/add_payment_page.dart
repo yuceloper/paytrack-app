@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../dashboard/data/models/upcoming_payment.dart';
+import '../../data/models/payment_item.dart';
 import '../../data/payment_repository.dart';
 
 class AddPaymentPage extends StatefulWidget {
-  final UpcomingPayment? payment;
+  final PaymentItem? payment;
 
   const AddPaymentPage({super.key, this.payment});
 
