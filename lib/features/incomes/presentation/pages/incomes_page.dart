@@ -1,0 +1,257 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../data/income_repository.dart';
+
+class IncomesPage extends StatefulWidget {
+  const IncomesPage({super.key});
+
+  @override
+  State<IncomesPage> createState() => _IncomesPageState();
+}
+
+class _IncomesPageState extends State<IncomesPage> {
+  final _repository = IncomeRepository();
+  DateTime _month = DateTime.now();
+  late Future<List<IncomeOccurrenceItem>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    _future = _repository.fetchMonth(_month);
+  }
+
+  void _changeMonth(int delta) {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + delta, 1);
+      _reload();
+    });
+  }
+
+  Future<void> _addIncome() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _AddIncomeSheet(),
+    );
+    if (created == true) {
+      setState(_reload);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Gelirler'),
+        actions: [IconButton(onPressed: _addIncome, icon: const Icon(Icons.add))],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Row(
+              children: [
+                IconButton(onPressed: () => _changeMonth(-1), icon: const Icon(Icons.chevron_left)),
+                Expanded(
+                  child: Text(
+                    DateFormat('MMMM yyyy', 'tr_TR').format(_month),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(onPressed: () => _changeMonth(1), icon: const Icon(Icons.chevron_right)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<IncomeOccurrenceItem>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text(snapshot.error.toString()));
+                }
+                final items = snapshot.data ?? const [];
+                if (items.isEmpty) {
+                  return const Center(child: Text('Bu ay için gelir kaydı yok.'));
+                }
+                final expected = items.fold<double>(0, (sum, item) => sum + item.amount);
+                final received = items.where((e) => e.received).fold<double>(0, (sum, item) => sum + item.amount);
+                return ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _MetricCard(title: 'Beklenen', value: _money(expected))),
+                        const SizedBox(width: 12),
+                        Expanded(child: _MetricCard(title: 'Gelen', value: _money(received))),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    ...items.map((item) => Card(
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              child: Icon(item.received ? Icons.check : Icons.south_west),
+                            ),
+                            title: Text(
+                              item.name,
+                              style: TextStyle(
+                                decoration: item.received ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${DateFormat('d MMMM', 'tr_TR').format(item.expectedDate)} • ${item.received ? 'Geldi' : 'Bekleniyor'}',
+                            ),
+                            trailing: Text(_money(item.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                            onTap: item.received
+                                ? null
+                                : () async {
+                                    await _repository.markReceived(item.id);
+                                    if (mounted) setState(_reload);
+                                  },
+                          ),
+                        )),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
+}
+
+class _MetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _MetricCard({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title),
+          const SizedBox(height: 8),
+          FittedBox(child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
+        ]),
+      ),
+    );
+  }
+}
+
+class _AddIncomeSheet extends StatefulWidget {
+  const _AddIncomeSheet();
+
+  @override
+  State<_AddIncomeSheet> createState() => _AddIncomeSheetState();
+}
+
+class _AddIncomeSheetState extends State<_AddIncomeSheet> {
+  final _repository = IncomeRepository();
+  final _name = TextEditingController();
+  final _amount = TextEditingController();
+  String _type = 'SALARY';
+  String _frequency = 'MONTHLY';
+  DateTime _date = DateTime.now();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = double.tryParse(this._amount.text.replaceAll(',', '.'));
+    if (_name.text.trim().isEmpty || amount == null || amount <= 0) return;
+    setState(() => _saving = true);
+    try {
+      await _repository.createSource(
+        name: _name.text.trim(),
+        type: _type,
+        amount: amount,
+        frequency: _frequency,
+        nextIncomeDate: _date,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Gelir ekle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 20),
+          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Gelir adı', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: _amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Tutar', prefixText: '₺ ', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _type,
+            decoration: const InputDecoration(labelText: 'Tür', border: OutlineInputBorder()),
+            items: const [
+              DropdownMenuItem(value: 'SALARY', child: Text('Maaş')),
+              DropdownMenuItem(value: 'RENT', child: Text('Kira')),
+              DropdownMenuItem(value: 'FREELANCE', child: Text('Freelance')),
+              DropdownMenuItem(value: 'BUSINESS', child: Text('İş geliri')),
+              DropdownMenuItem(value: 'INVESTMENT', child: Text('Yatırım')),
+              DropdownMenuItem(value: 'OTHER', child: Text('Diğer')),
+            ],
+            onChanged: (v) => setState(() => _type = v ?? 'OTHER'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _frequency,
+            decoration: const InputDecoration(labelText: 'Tekrar', border: OutlineInputBorder()),
+            items: const [
+              DropdownMenuItem(value: 'MONTHLY', child: Text('Aylık')),
+              DropdownMenuItem(value: 'WEEKLY', child: Text('Haftalık')),
+              DropdownMenuItem(value: 'YEARLY', child: Text('Yıllık')),
+              DropdownMenuItem(value: 'ONE_TIME', child: Text('Tek seferlik')),
+            ],
+            onChanged: (v) => setState(() => _frequency = v ?? 'ONE_TIME'),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            shape: RoundedRectangleBorder(side: BorderSide(color: Theme.of(context).colorScheme.outline), borderRadius: BorderRadius.circular(4)),
+            title: const Text('İlk / sonraki gelir tarihi'),
+            subtitle: Text(DateFormat('d MMMM yyyy', 'tr_TR').format(_date)),
+            trailing: const Icon(Icons.calendar_month),
+            onTap: () async {
+              final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime(2100));
+              if (picked != null) setState(() => _date = picked);
+            },
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(_saving ? 'Kaydediliyor...' : 'Geliri kaydet'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
