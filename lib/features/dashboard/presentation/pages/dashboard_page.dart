@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../payments/presentation/pages/add_payment_page.dart';
 import '../../application/dashboard_providers.dart';
 import '../../data/dashboard_repository.dart';
 import '../../data/models/upcoming_payment.dart';
@@ -33,7 +34,19 @@ class DashboardPage extends ConsumerWidget {
         data: (data) => _DashboardContent(data: data),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const AddPaymentPage()),
+          );
+          if (created == true) {
+            ref.invalidate(dashboardProvider);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Ödeme eklendi')),
+              );
+            }
+          }
+        },
         icon: const Icon(Icons.add),
         label: const Text('Ödeme ekle'),
       ),
