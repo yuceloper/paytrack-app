@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 import '../../payments/data/models/payment_item.dart';
 import 'models/dashboard_summary.dart';
 
@@ -16,7 +17,7 @@ class DashboardData {
 class DashboardRepository {
   final http.Client _client;
 
-  DashboardRepository({http.Client? client}) : _client = client ?? http.Client();
+  DashboardRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<DashboardData> fetchDashboard({int? userId}) async {
     final resolvedUserId = userId ?? AppConfig.demoUserId;
