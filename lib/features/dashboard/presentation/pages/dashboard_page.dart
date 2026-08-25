@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/presentation/pages/add_payment_page.dart';
 import '../../../payments/presentation/pages/payment_detail_page.dart';
 import '../../application/dashboard_providers.dart';
 import '../../data/dashboard_repository.dart';
-import '../../data/models/upcoming_payment.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -218,7 +218,7 @@ class _CompactSummaryCard extends StatelessWidget {
 }
 
 class _PaymentTile extends StatelessWidget {
-  final UpcomingPayment payment;
+  final PaymentItem payment;
 
   const _PaymentTile(this.payment);
 
