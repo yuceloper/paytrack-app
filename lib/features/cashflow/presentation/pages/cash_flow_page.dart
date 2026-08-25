@@ -98,6 +98,11 @@ class _CashFlowPageState extends State<CashFlowPage> {
 
   @override
   Widget build(BuildContext context) {
+    final income = SemanticColors.incomeFor(context);
+    final expense = SemanticColors.expenseFor(context);
+    final incomeSoft = SemanticColors.incomeSoftFor(context);
+    final expenseSoft = SemanticColors.expenseSoftFor(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nakit Akışı'),
@@ -169,8 +174,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
                         title: 'Planlanan gelir',
                         value: _money(data.plannedIncome),
                         subtitle: '${_money(data.receivedIncome)} geldi',
-                        accent: SemanticColors.income,
-                        accentSoft: SemanticColors.incomeSoft,
+                        accent: income,
+                        accentSoft: incomeSoft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -179,8 +184,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
                         title: 'Kalan ödeme',
                         value: _money(data.remainingPayments),
                         subtitle: '${_money(data.totalPayments)} toplam',
-                        accent: SemanticColors.expense,
-                        accentSoft: SemanticColors.expenseSoft,
+                        accent: expense,
+                        accentSoft: expenseSoft,
                       ),
                     ),
                   ],
@@ -189,10 +194,10 @@ class _CashFlowPageState extends State<CashFlowPage> {
                 Card(
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: data.plannedNet >= 0 ? SemanticColors.incomeSoft : SemanticColors.expenseSoft,
+                      backgroundColor: data.plannedNet >= 0 ? incomeSoft : expenseSoft,
                       child: Icon(
                         Icons.swap_vert,
-                        color: data.plannedNet >= 0 ? SemanticColors.income : SemanticColors.expense,
+                        color: data.plannedNet >= 0 ? income : expense,
                       ),
                     ),
                     title: const Text('Planlanan net değişim'),
@@ -202,7 +207,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
                       style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
-                        color: data.plannedNet >= 0 ? SemanticColors.income : SemanticColors.expense,
+                        color: data.plannedNet >= 0 ? income : expense,
                       ),
                     ),
                   ),
@@ -336,8 +341,8 @@ class _CashFlowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final amount = _CashFlowPageState._money(entry.amount);
     final projected = _CashFlowPageState._money(entry.projectedBalance);
-    final accent = entry.isIncome ? SemanticColors.income : SemanticColors.expense;
-    final accentSoft = entry.isIncome ? SemanticColors.incomeSoft : SemanticColors.expenseSoft;
+    final accent = entry.isIncome ? SemanticColors.incomeFor(context) : SemanticColors.expenseFor(context);
+    final accentSoft = entry.isIncome ? SemanticColors.incomeSoftFor(context) : SemanticColors.expenseSoftFor(context);
 
     return Card(
       child: ListTile(
