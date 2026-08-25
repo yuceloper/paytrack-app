@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 
 class AccountItem {
   final int id;
@@ -82,7 +83,7 @@ class AccountTransactionItem {
 class AccountRepository {
   final http.Client _client;
 
-  AccountRepository({http.Client? client}) : _client = client ?? http.Client();
+  AccountRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<List<AccountItem>> fetchAll() async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts')
