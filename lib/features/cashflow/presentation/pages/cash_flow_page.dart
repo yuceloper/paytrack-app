@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../../accounts/data/account_repository.dart';
 import '../../../accounts/presentation/pages/accounts_page.dart';
 import '../../../incomes/data/income_repository.dart';
@@ -168,6 +169,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
                         title: 'Planlanan gelir',
                         value: _money(data.plannedIncome),
                         subtitle: '${_money(data.receivedIncome)} geldi',
+                        accent: SemanticColors.income,
+                        accentSoft: SemanticColors.incomeSoft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -176,6 +179,8 @@ class _CashFlowPageState extends State<CashFlowPage> {
                         title: 'Kalan ödeme',
                         value: _money(data.remainingPayments),
                         subtitle: '${_money(data.totalPayments)} toplam',
+                        accent: SemanticColors.expense,
+                        accentSoft: SemanticColors.expenseSoft,
                       ),
                     ),
                   ],
@@ -183,12 +188,22 @@ class _CashFlowPageState extends State<CashFlowPage> {
                 const SizedBox(height: 12),
                 Card(
                   child: ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.swap_vert)),
+                    leading: CircleAvatar(
+                      backgroundColor: data.plannedNet >= 0 ? SemanticColors.incomeSoft : SemanticColors.expenseSoft,
+                      child: Icon(
+                        Icons.swap_vert,
+                        color: data.plannedNet >= 0 ? SemanticColors.income : SemanticColors.expense,
+                      ),
+                    ),
                     title: const Text('Planlanan net değişim'),
                     subtitle: const Text('Gelir − toplam ödeme'),
                     trailing: Text(
                       _signedMoney(data.plannedNet),
-                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: data.plannedNet >= 0 ? SemanticColors.income : SemanticColors.expense,
+                      ),
                     ),
                   ),
                 ),
@@ -273,12 +288,21 @@ class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
   final String subtitle;
+  final Color? accent;
+  final Color? accentSoft;
 
-  const _MetricCard({required this.title, required this.value, required this.subtitle});
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    this.accent,
+    this.accentSoft,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: accentSoft,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -289,7 +313,10 @@ class _MetricCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              child: Text(
+                value,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: accent),
+              ),
             ),
             const SizedBox(height: 4),
             Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -309,15 +336,20 @@ class _CashFlowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final amount = _CashFlowPageState._money(entry.amount);
     final projected = _CashFlowPageState._money(entry.projectedBalance);
+    final accent = entry.isIncome ? SemanticColors.income : SemanticColors.expense;
+    final accentSoft = entry.isIncome ? SemanticColors.incomeSoft : SemanticColors.expenseSoft;
 
     return Card(
       child: ListTile(
-        leading: CircleAvatar(child: Icon(entry.isIncome ? Icons.south_west : Icons.north_east)),
+        leading: CircleAvatar(
+          backgroundColor: accentSoft,
+          child: Icon(entry.isIncome ? Icons.south_west : Icons.north_east, color: accent),
+        ),
         title: Text(entry.title),
         subtitle: Text('${entry.statusLabel} • Tahmini bakiye $projected'),
         trailing: Text(
           '${entry.isIncome ? '+' : '−'}$amount',
-          style: const TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(fontWeight: FontWeight.w800, color: accent),
         ),
       ),
     );
