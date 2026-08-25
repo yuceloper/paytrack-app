@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/account_repository.dart';
+import 'account_transactions_page.dart';
 
 class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key});
@@ -53,6 +54,14 @@ class _AccountsPageState extends State<AccountsPage> {
       appBar: AppBar(
         title: const Text('Hesaplar'),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountTransactionsPage()),
+            ),
+            icon: const Icon(Icons.history),
+            tooltip: 'Hesap hareketleri',
+          ),
           IconButton(onPressed: _add, icon: const Icon(Icons.add), tooltip: 'Hesap ekle'),
         ],
       ),
