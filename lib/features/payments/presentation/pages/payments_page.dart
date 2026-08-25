@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../data/models/payment_item.dart';
 import '../../data/payment_repository.dart';
 import 'add_payment_page.dart';
@@ -99,11 +100,16 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
                       Card(
+                        color: pendingTotal > 0 ? SemanticColors.expenseSoft : null,
                         child: ListTile(
                           title: const Text('Kalan toplam'),
                           trailing: Text(
                             NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(pendingTotal),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: pendingTotal > 0 ? SemanticColors.expense : null,
+                            ),
                           ),
                         ),
                       ),
@@ -134,6 +140,9 @@ class _PaymentListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat('d MMMM', 'tr_TR').format(payment.dueDate);
     final amount = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(payment.amount);
+    final accent = payment.paid ? SemanticColors.income : SemanticColors.expense;
+    final accentSoft = payment.paid ? SemanticColors.incomeSoft : SemanticColors.expenseSoft;
+
     return Card(
       child: ListTile(
         onTap: () async {
@@ -144,14 +153,21 @@ class _PaymentListTile extends StatelessWidget {
           if (changed == true) onChanged();
         },
         leading: CircleAvatar(
-          child: Icon(payment.paid ? Icons.check : _iconForType(payment.type)),
+          backgroundColor: accentSoft,
+          child: Icon(
+            payment.paid ? Icons.check : _iconForType(payment.type),
+            color: accent,
+          ),
         ),
         title: Text(
           payment.name,
           style: TextStyle(decoration: payment.paid ? TextDecoration.lineThrough : null),
         ),
         subtitle: Text('$date • ${payment.paid ? 'Ödendi' : 'Bekliyor'}'),
-        trailing: Text(amount, style: const TextStyle(fontWeight: FontWeight.w700)),
+        trailing: Text(
+          amount,
+          style: TextStyle(fontWeight: FontWeight.w700, color: accent),
+        ),
       ),
     );
   }
