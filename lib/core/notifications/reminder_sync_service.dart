@@ -31,6 +31,8 @@ class ReminderSyncService {
     await _notificationService.clearPayTrackReminders();
 
     final preferences = await _preferencesStore.load();
+    if (!preferences.enabled) return 0;
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final end = today.add(const Duration(days: _lookAheadDays));
