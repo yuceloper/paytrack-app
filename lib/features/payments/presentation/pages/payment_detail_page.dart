@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../dashboard/data/models/upcoming_payment.dart';
+import '../../data/models/payment_item.dart';
 import '../../data/payment_repository.dart';
 import 'add_payment_page.dart';
 
 class PaymentDetailPage extends StatefulWidget {
-  final UpcomingPayment payment;
+  final PaymentItem payment;
 
   const PaymentDetailPage({super.key, required this.payment});
 
@@ -18,8 +18,14 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
   final _repository = PaymentRepository();
   bool _busy = false;
 
-  Future<void> _markPaid() async {
-    await _runAction(() => _repository.markPaid(widget.payment.id), 'Ödeme tamamlandı olarak işaretlendi');
+  Future<void> _togglePaid() async {
+    final action = widget.payment.paid
+        ? () => _repository.markPending(widget.payment.id)
+        : () => _repository.markPaid(widget.payment.id);
+    final message = widget.payment.paid
+        ? 'Ödeme bekliyor durumuna alındı'
+        : 'Ödeme tamamlandı olarak işaretlendi';
+    await _runAction(action, message);
   }
 
   Future<void> _edit() async {
@@ -84,7 +90,12 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(payment.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                  Row(
+                    children: [
+                      Expanded(child: Text(payment.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700))),
+                      if (payment.paid) const Chip(label: Text('Ödendi')),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Text(amount, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 20),
@@ -101,11 +112,17 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
-            onPressed: _busy ? null : _markPaid,
+            onPressed: _busy ? null : _togglePaid,
             icon: _busy
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check_circle_outline),
-            label: Text(_busy ? 'İşleniyor...' : 'Ödendi olarak işaretle'),
+                : Icon(payment.paid ? Icons.undo : Icons.check_circle_outline),
+            label: Text(
+              _busy
+                  ? 'İşleniyor...'
+                  : payment.paid
+                      ? 'Bekliyor olarak işaretle'
+                      : 'Ödendi olarak işaretle',
+            ),
           ),
         ],
       ),
