@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../features/analytics/presentation/pages/analytics_page.dart';
 import '../features/calendar/presentation/pages/calendar_page.dart';
 import '../features/cashflow/presentation/pages/cash_flow_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
@@ -21,7 +20,6 @@ class _MainShellState extends State<MainShell> {
     DashboardPage(),
     CalendarPage(),
     CashFlowPage(),
-    AnalyticsPage(),
     PaymentsPage(),
     IncomesPage(),
   ];
@@ -48,11 +46,6 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.swap_vert_outlined),
             selectedIcon: Icon(Icons.swap_vert),
             label: 'Akış',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Analiz',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
