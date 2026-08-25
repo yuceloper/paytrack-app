@@ -45,10 +45,8 @@ class NotificationService {
     await initialize();
     if (kIsWeb) return false;
 
-    bool granted;
-
     if (Platform.isIOS) {
-      granted = await _plugin
+      return await _plugin
               .resolvePlatformSpecificImplementation<
                   IOSFlutterLocalNotificationsPlugin>()
               ?.requestPermissions(
@@ -57,23 +55,17 @@ class NotificationService {
                 sound: true,
               ) ??
           false;
-    } else if (Platform.isAndroid) {
-      granted = await _plugin
+    }
+
+    if (Platform.isAndroid) {
+      return await _plugin
               .resolvePlatformSpecificImplementation<
                   AndroidFlutterLocalNotificationsPlugin>()
               ?.requestNotificationsPermission() ??
           true;
-    } else {
-      granted = true;
     }
 
-    if (granted) {
-      await _scheduleTestWithoutPermissionCheck(
-        delay: const Duration(seconds: 10),
-      );
-    }
-
-    return granted;
+    return true;
   }
 
   Future<void> clearPayTrackReminders() async {
@@ -128,15 +120,14 @@ class NotificationService {
     );
   }
 
-  Future<void> _scheduleTestWithoutPermissionCheck({
-    required Duration delay,
+  Future<void> scheduleTestNotification({
+    Duration delay = const Duration(seconds: 10),
   }) async {
-    final target = DateTime.now().add(delay);
     await scheduleReminder(
       id: 999999,
       title: 'PayTrack test bildirimi 🔔',
       body: 'Bildirim sistemi çalışıyor.',
-      dateTime: target,
+      dateTime: DateTime.now().add(delay),
       payload: 'test-notification',
     );
   }
