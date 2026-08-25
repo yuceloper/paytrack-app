@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../payments/data/models/payment_item.dart';
 import 'models/dashboard_summary.dart';
-import 'models/upcoming_payment.dart';
 
 class DashboardData {
   final DashboardSummary summary;
-  final List<UpcomingPayment> upcomingPayments;
+  final List<PaymentItem> upcomingPayments;
 
   const DashboardData({required this.summary, required this.upcomingPayments});
 }
@@ -39,7 +39,7 @@ class DashboardRepository {
     return DashboardData(
       summary: DashboardSummary.fromJson(summaryData),
       upcomingPayments: paymentData
-          .map((item) => UpcomingPayment.fromJson(item as Map<String, dynamic>))
+          .map((item) => PaymentItem.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
