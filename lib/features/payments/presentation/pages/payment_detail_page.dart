@@ -44,20 +44,73 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
   }
 
   Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ödemeyi sil?'),
-        content: Text('${widget.payment.name} kalıcı olarak silinecek.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
-        ],
-      ),
+    String scope = 'THIS';
+
+    if (widget.payment.seriesId != null) {
+      final selected = await _selectDeleteScope();
+      if (selected == null || !mounted) return;
+      scope = selected;
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Ödemeyi sil?'),
+          content: Text('${widget.payment.name} kalıcı olarak silinecek.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    await _runAction(
+      () => _repository.deletePayment(widget.payment.id, scope: scope),
+      scope == 'THIS' ? 'Ödeme silindi' : 'Seri kayıtları silindi',
     );
-    if (confirmed != true) return;
-    await _runAction(() => _repository.deletePayment(widget.payment.id), 'Ödeme silindi');
   }
+
+  Future<String?> _selectDeleteScope() => showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Hangi ödemeler silinsin?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(
+                  'Ödenmiş geçmiş kayıtlar toplu silmede korunur.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Sadece bu ödeme'),
+                  subtitle: const Text('Seri devam eder'),
+                  onTap: () => Navigator.pop(context, 'THIS'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_sweep_outlined),
+                  title: const Text('Bu ve sonraki ödemeler'),
+                  subtitle: const Text('Bu tarihten itibaren bekleyen kayıtları siler'),
+                  onTap: () => Navigator.pop(context, 'THIS_AND_FUTURE'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.layers_clear_outlined),
+                  title: const Text('Tüm seri'),
+                  subtitle: const Text('Bekleyen tüm seri kayıtlarını siler'),
+                  onTap: () => Navigator.pop(context, 'ALL'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 
   Future<void> _runAction(Future<void> Function() action, String message) async {
     setState(() => _busy = true);
@@ -107,7 +160,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                   _DetailRow(label: 'Son ödeme', value: date),
                   if (payment.institution != null && payment.institution!.isNotEmpty)
                     _DetailRow(label: 'Kurum / banka', value: payment.institution!),
-                  _DetailRow(label: 'Tekrarlayan', value: payment.recurring ? 'Evet' : 'Hayır'),
+                  _DetailRow(label: 'Tekrarlayan', value: payment.recurring ? _recurrenceLabel(payment) : 'Hayır'),
                   if (payment.note != null && payment.note!.isNotEmpty) _DetailRow(label: 'Not', value: payment.note!),
                 ],
               ),
@@ -137,6 +190,17 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
         'BILL' => 'Fatura',
         _ => 'Diğer',
       };
+
+  String _recurrenceLabel(PaymentItem payment) {
+    final interval = payment.recurrenceInterval ?? 1;
+    return switch (payment.recurrenceFrequency) {
+      'WEEKLY' => interval == 1 ? 'Her hafta' : '$interval haftada bir',
+      'YEARLY' => interval == 1 ? 'Her yıl' : '$interval yılda bir',
+      'CUSTOM_DAYS' => '$interval günde bir',
+      'CUSTOM_MONTHS' => '$interval ayda bir',
+      _ => interval == 1 ? 'Her ay' : '$interval ayda bir',
+    };
+  }
 }
 
 class _DetailRow extends StatelessWidget {
