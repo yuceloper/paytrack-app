@@ -79,7 +79,7 @@ class _DashboardContent extends StatelessWidget {
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
-          const Text('Yaklaşan ödemelerini tek yerden takip et.'),
+          const Text('Gelir ve ödemelerini tek yerden takip et.'),
           const SizedBox(height: 24),
           _SummaryCard(
             title: 'Bu ay ödenecek',
@@ -110,6 +110,41 @@ class _DashboardContent extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          const Text('Nakit akışı', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactSummaryCard(
+                  title: 'Beklenen gelir',
+                  value: _currency(summary.expectedIncomeThisMonth),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CompactSummaryCard(
+                  title: 'Planlanan net',
+                  value: _currency(summary.plannedNetCashFlowThisMonth),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (summary.nextIncomeDate != null)
+            _SummaryCard(
+              title: 'Bir sonraki gelire kadar gerekli',
+              value: _currency(summary.requiredUntilNextIncome),
+              subtitle:
+                  '${summary.nextIncomeName ?? 'Gelir'} • ${DateFormat('d MMMM', 'tr_TR').format(summary.nextIncomeDate!)} • ${_currency(summary.nextIncomeAmount)}',
+            )
+          else
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(18),
+                child: Text('Henüz planlanmış bir gelir yok.'),
+              ),
+            ),
           if (summary.overduePaymentCount > 0) ...[
             const SizedBox(height: 12),
             Card(
