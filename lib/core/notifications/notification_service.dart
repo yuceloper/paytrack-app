@@ -119,16 +119,4 @@ class NotificationService {
       payload: '$_payloadPrefix$payload',
     );
   }
-
-  Future<void> scheduleTestNotification({
-    Duration delay = const Duration(seconds: 10),
-  }) async {
-    await scheduleReminder(
-      id: 999999,
-      title: 'PayTrack test bildirimi 🔔',
-      body: 'Bildirim sistemi çalışıyor.',
-      dateTime: DateTime.now().add(delay),
-      payload: 'test-notification',
-    );
-  }
 }
