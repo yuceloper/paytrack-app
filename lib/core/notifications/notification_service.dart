@@ -97,6 +97,7 @@ class NotificationService {
       dateTime.day,
       dateTime.hour,
       dateTime.minute,
+      dateTime.second,
     );
 
     await _plugin.zonedSchedule(
@@ -116,6 +117,23 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: '$_payloadPrefix$payload',
+    );
+  }
+
+  Future<void> scheduleTestNotification({
+    Duration delay = const Duration(seconds: 10),
+  }) async {
+    await initialize();
+    final granted = await requestPermission();
+    if (!granted || kIsWeb) return;
+
+    final target = DateTime.now().add(delay);
+    await scheduleReminder(
+      id: 999999,
+      title: 'PayTrack test bildirimi 🔔',
+      body: 'Bildirim sistemi çalışıyor.',
+      dateTime: target,
+      payload: 'test-notification',
     );
   }
 }
