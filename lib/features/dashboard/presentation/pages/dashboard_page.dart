@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/notifications/reminder_sync_service.dart';
 import '../../../analytics/presentation/pages/analytics_page.dart';
 import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/presentation/pages/add_payment_page.dart';
 import '../../../payments/presentation/pages/payment_detail_page.dart';
+import '../../../settings/presentation/pages/notification_settings_page.dart';
 import '../../application/dashboard_providers.dart';
 import '../../data/dashboard_repository.dart';
 
@@ -23,8 +23,10 @@ class DashboardPage extends ConsumerWidget {
         title: const Text('PayTrack'),
         actions: [
           IconButton(
-            tooltip: 'Bildirimler',
-            onPressed: () => _enableNotifications(context),
+            tooltip: 'Bildirim ayarları',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationSettingsPage()),
+            ),
             icon: const Icon(Icons.notifications_none),
           ),
           IconButton(
@@ -68,33 +70,6 @@ class DashboardPage extends ConsumerWidget {
         label: const Text('Ödeme ekle'),
       ),
     );
-  }
-
-  Future<void> _enableNotifications(BuildContext context) async {
-    final granted = await NotificationService.instance.requestPermission();
-    if (!context.mounted) return;
-
-    if (!granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bildirim izni verilmedi. iPhone Ayarlar’dan açabilirsin.'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final count = await ReminderSyncService().sync();
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$count hatırlatma planlandı')),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hatırlatmalar şu an senkronize edilemedi')),
-      );
-    }
   }
 
   Future<void> _syncRemindersSilently() async {
