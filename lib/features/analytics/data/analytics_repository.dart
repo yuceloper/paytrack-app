@@ -78,7 +78,6 @@ class AnalyticsRepository {
   Future<MonthlyAnalytics> fetchMonthly(DateTime month) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/analytics/monthly').replace(
       queryParameters: {
-        'userId': AppConfig.demoUserId.toString(),
         'year': month.year.toString(),
         'month': month.month.toString(),
       },
