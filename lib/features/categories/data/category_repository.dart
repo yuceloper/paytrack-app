@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 
 class TransactionCategoryItem {
   final int id;
@@ -36,7 +37,7 @@ class TransactionCategoryItem {
 class TransactionCategoryRepository {
   final http.Client _client;
 
-  TransactionCategoryRepository({http.Client? client}) : _client = client ?? http.Client();
+  TransactionCategoryRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<List<TransactionCategoryItem>> fetchAll() async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/categories')
