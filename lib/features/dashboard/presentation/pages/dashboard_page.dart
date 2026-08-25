@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../payments/presentation/pages/add_payment_page.dart';
+import '../../../payments/presentation/pages/payment_detail_page.dart';
 import '../../application/dashboard_providers.dart';
 import '../../data/dashboard_repository.dart';
 import '../../data/models/upcoming_payment.dart';
@@ -232,6 +233,15 @@ class _PaymentTile extends StatelessWidget {
 
     return Card(
       child: ListTile(
+        onTap: () async {
+          final changed = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => PaymentDetailPage(payment: payment)),
+          );
+          if (changed == true && context.mounted) {
+            final container = ProviderScope.containerOf(context);
+            container.invalidate(dashboardProvider);
+          }
+        },
         leading: CircleAvatar(child: Icon(_iconForType(payment.type))),
         title: Text(payment.name),
         subtitle: Text(date),
