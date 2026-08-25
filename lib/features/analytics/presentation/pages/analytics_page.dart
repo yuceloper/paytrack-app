@@ -33,6 +33,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final income = SemanticColors.incomeFor(context);
+    final expense = SemanticColors.expenseFor(context);
+    final incomeSoft = SemanticColors.incomeSoftFor(context);
+    final expenseSoft = SemanticColors.expenseSoftFor(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('İstatistikler'),
@@ -101,8 +106,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       child: _MetricCard(
                         title: 'Gelir',
                         value: _money(data.totalIncome),
-                        accent: SemanticColors.income,
-                        accentSoft: SemanticColors.incomeSoft,
+                        accent: income,
+                        accentSoft: incomeSoft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -110,8 +115,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       child: _MetricCard(
                         title: 'Gider',
                         value: _money(data.totalExpense),
-                        accent: SemanticColors.expense,
-                        accentSoft: SemanticColors.expenseSoft,
+                        accent: expense,
+                        accentSoft: expenseSoft,
                       ),
                     ),
                   ],
@@ -121,8 +126,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   title: 'Net nakit',
                   value: _signedMoney(data.netCashFlow),
                   subtitle: '${data.transactionCount} gerçekleşmiş hareket',
-                  accent: data.netCashFlow >= 0 ? SemanticColors.income : SemanticColors.expense,
-                  accentSoft: data.netCashFlow >= 0 ? SemanticColors.incomeSoft : SemanticColors.expenseSoft,
+                  accent: data.netCashFlow >= 0 ? income : expense,
+                  accentSoft: data.netCashFlow >= 0 ? incomeSoft : expenseSoft,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -135,13 +140,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         accent: data.expenseChangePercent == null
                             ? null
                             : data.expenseChangePercent! <= 0
-                                ? SemanticColors.income
-                                : SemanticColors.expense,
+                                ? income
+                                : expense,
                         accentSoft: data.expenseChangePercent == null
                             ? null
                             : data.expenseChangePercent! <= 0
-                                ? SemanticColors.incomeSoft
-                                : SemanticColors.expenseSoft,
+                                ? incomeSoft
+                                : expenseSoft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -270,6 +275,9 @@ class _CategoryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = (item.percentage / 100).clamp(0.0, 1.0);
+    final expense = SemanticColors.expenseFor(context);
+    final expenseSoft = SemanticColors.expenseSoftFor(context);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -286,9 +294,9 @@ class _CategoryBar extends StatelessWidget {
                 ),
                 Text(
                   _AnalyticsPageState._money(item.amount),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: SemanticColors.expense,
+                    color: expense,
                   ),
                 ),
               ],
@@ -296,8 +304,8 @@ class _CategoryBar extends StatelessWidget {
             const SizedBox(height: 10),
             LinearProgressIndicator(
               value: progress,
-              color: SemanticColors.expense,
-              backgroundColor: SemanticColors.expenseSoft,
+              color: expense,
+              backgroundColor: expenseSoft,
             ),
             const SizedBox(height: 6),
             Text('%${item.percentage.toStringAsFixed(1)}'),
