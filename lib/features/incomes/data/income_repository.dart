@@ -12,6 +12,8 @@ class IncomeSourceItem {
   final String currency;
   final String frequency;
   final int? recurrenceDay;
+  final int? recurrenceInterval;
+  final DateTime? recurrenceEndDate;
   final DateTime nextIncomeDate;
   final bool active;
 
@@ -23,6 +25,8 @@ class IncomeSourceItem {
     required this.currency,
     required this.frequency,
     required this.recurrenceDay,
+    required this.recurrenceInterval,
+    required this.recurrenceEndDate,
     required this.nextIncomeDate,
     required this.active,
   });
@@ -35,6 +39,10 @@ class IncomeSourceItem {
         currency: json['currency'] as String,
         frequency: json['frequency'] as String,
         recurrenceDay: (json['recurrenceDay'] as num?)?.toInt(),
+        recurrenceInterval: (json['recurrenceInterval'] as num?)?.toInt(),
+        recurrenceEndDate: json['recurrenceEndDate'] == null
+            ? null
+            : DateTime.parse(json['recurrenceEndDate'] as String),
         nextIncomeDate: DateTime.parse(json['nextIncomeDate'] as String),
         active: json['active'] as bool? ?? true,
       );
@@ -88,8 +96,11 @@ class IncomeRepository {
     required double amount,
     required String frequency,
     required DateTime nextIncomeDate,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
   }) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/sources');
+    final monthlyAnchor = frequency == 'MONTHLY' || frequency == 'CUSTOM_MONTHS';
     final response = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
@@ -100,7 +111,9 @@ class IncomeRepository {
         'amount': amount,
         'currency': 'TRY',
         'frequency': frequency,
-        'recurrenceDay': frequency == 'MONTHLY' ? nextIncomeDate.day : null,
+        'recurrenceDay': monthlyAnchor ? nextIncomeDate.day : null,
+        'recurrenceInterval': frequency == 'ONE_TIME' ? null : (recurrenceInterval ?? 1),
+        'recurrenceEndDate': recurrenceEndDate == null ? null : _date(recurrenceEndDate),
         'nextIncomeDate': _date(nextIncomeDate),
       }),
     );
