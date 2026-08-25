@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../dashboard/data/models/upcoming_payment.dart';
 import '../../data/payment_repository.dart';
 
 class AddPaymentPage extends StatefulWidget {
-  const AddPaymentPage({super.key});
+  final UpcomingPayment? payment;
+
+  const AddPaymentPage({super.key, this.payment});
+
+  bool get isEditing => payment != null;
 
   @override
   State<AddPaymentPage> createState() => _AddPaymentPageState();
@@ -22,6 +27,21 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    final payment = widget.payment;
+    if (payment != null) {
+      _nameController.text = payment.name;
+      _amountController.text = payment.amount.toStringAsFixed(2);
+      _institutionController.text = payment.institution ?? '';
+      _noteController.text = payment.note ?? '';
+      _type = payment.type;
+      _dueDate = payment.dueDate;
+      _recurring = payment.recurring;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _amountController.dispose();
@@ -34,7 +54,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await _repository.createPayment(
+      final args = (
         name: _nameController.text.trim(),
         type: _type,
         amount: double.parse(_amountController.text.replaceAll(',', '.')),
@@ -44,6 +64,31 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
         institution: _institutionController.text.trim().isEmpty ? null : _institutionController.text.trim(),
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       );
+
+      if (widget.isEditing) {
+        await _repository.updatePayment(
+          id: widget.payment!.id,
+          name: args.name,
+          type: args.type,
+          amount: args.amount,
+          dueDate: args.dueDate,
+          recurring: args.recurring,
+          recurrenceDay: args.recurrenceDay,
+          institution: args.institution,
+          note: args.note,
+        );
+      } else {
+        await _repository.createPayment(
+          name: args.name,
+          type: args.type,
+          amount: args.amount,
+          dueDate: args.dueDate,
+          recurring: args.recurring,
+          recurrenceDay: args.recurrenceDay,
+          institution: args.institution,
+          note: args.note,
+        );
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -57,7 +102,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ödeme ekle')),
+      appBar: AppBar(title: Text(widget.isEditing ? 'Ödemeyi düzenle' : 'Ödeme ekle')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -93,12 +138,20 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
             ),
             const SizedBox(height: 14),
             ListTile(
-              shape: RoundedRectangleBorder(side: BorderSide(color: Theme.of(context).colorScheme.outline), borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
+                borderRadius: BorderRadius.circular(4),
+              ),
               title: const Text('Son ödeme tarihi'),
               subtitle: Text('${_dueDate.day}.${_dueDate.month}.${_dueDate.year}'),
               trailing: const Icon(Icons.calendar_month),
               onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: _dueDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dueDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
                 if (picked != null) setState(() => _dueDate = picked);
               },
             ),
@@ -110,14 +163,23 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
               onChanged: (value) => setState(() => _recurring = value),
             ),
             const SizedBox(height: 8),
-            TextFormField(controller: _institutionController, decoration: const InputDecoration(labelText: 'Kurum / banka', border: OutlineInputBorder())),
+            TextFormField(
+              controller: _institutionController,
+              decoration: const InputDecoration(labelText: 'Kurum / banka', border: OutlineInputBorder()),
+            ),
             const SizedBox(height: 14),
-            TextFormField(controller: _noteController, maxLines: 3, decoration: const InputDecoration(labelText: 'Not', border: OutlineInputBorder())),
+            TextFormField(
+              controller: _noteController,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Not', border: OutlineInputBorder()),
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _saving ? null : _save,
-              icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-              label: Text(_saving ? 'Kaydediliyor...' : 'Ödemeyi kaydet'),
+              icon: _saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.save_outlined),
+              label: Text(_saving ? 'Kaydediliyor...' : widget.isEditing ? 'Değişiklikleri kaydet' : 'Ödemeyi kaydet'),
             ),
           ],
         ),
