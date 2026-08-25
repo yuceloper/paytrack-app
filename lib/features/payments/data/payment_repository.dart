@@ -26,13 +26,28 @@ class PaymentRepository {
     required DateTime dueDate,
     required bool recurring,
     int? recurrenceDay,
+    String? recurrenceFrequency,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
     String? institution,
     String? note,
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(_payload(name: name, type: type, amount: amount, dueDate: dueDate, recurring: recurring, recurrenceDay: recurrenceDay, institution: institution, note: note)),
+      body: jsonEncode(_payload(
+        name: name,
+        type: type,
+        amount: amount,
+        dueDate: dueDate,
+        recurring: recurring,
+        recurrenceDay: recurrenceDay,
+        recurrenceFrequency: recurrenceFrequency,
+        recurrenceInterval: recurrenceInterval,
+        recurrenceEndDate: recurrenceEndDate,
+        institution: institution,
+        note: note,
+      )),
     );
     _ensureSuccess(response, 'Ödeme kaydedilemedi');
   }
@@ -45,13 +60,28 @@ class PaymentRepository {
     required DateTime dueDate,
     required bool recurring,
     int? recurrenceDay,
+    String? recurrenceFrequency,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
     String? institution,
     String? note,
   }) async {
     final response = await http.put(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(_payload(name: name, type: type, amount: amount, dueDate: dueDate, recurring: recurring, recurrenceDay: recurrenceDay, institution: institution, note: note)),
+      body: jsonEncode(_payload(
+        name: name,
+        type: type,
+        amount: amount,
+        dueDate: dueDate,
+        recurring: recurring,
+        recurrenceDay: recurrenceDay,
+        recurrenceFrequency: recurrenceFrequency,
+        recurrenceInterval: recurrenceInterval,
+        recurrenceEndDate: recurrenceEndDate,
+        institution: institution,
+        note: note,
+      )),
     );
     _ensureSuccess(response, 'Ödeme güncellenemedi');
   }
@@ -81,6 +111,9 @@ class PaymentRepository {
     required DateTime dueDate,
     required bool recurring,
     int? recurrenceDay,
+    String? recurrenceFrequency,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
     String? institution,
     String? note,
   }) => {
@@ -91,6 +124,9 @@ class PaymentRepository {
         'dueDate': _date(dueDate),
         'recurring': recurring,
         'recurrenceDay': recurring ? recurrenceDay : null,
+        'recurrenceFrequency': recurring ? recurrenceFrequency : null,
+        'recurrenceInterval': recurring ? recurrenceInterval : null,
+        'recurrenceEndDate': recurring && recurrenceEndDate != null ? _date(recurrenceEndDate) : null,
         'institution': institution,
         'note': note,
       };
