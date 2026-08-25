@@ -1,16 +1,21 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 import 'models/payment_item.dart';
 
 class PaymentRepository {
+  final http.Client _client;
+
+  PaymentRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
+
   Future<List<PaymentItem>> getPayments({required DateTime from, required DateTime to}) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments').replace(queryParameters: {
       'userId': AppConfig.demoUserId.toString(),
       'from': _date(from),
       'to': _date(to),
     });
-    final response = await http.get(uri);
+    final response = await _client.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Ödemeler alınamadı (${response.statusCode})');
     }
@@ -32,7 +37,7 @@ class PaymentRepository {
     String? institution,
     String? note,
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(_payload(
@@ -70,7 +75,7 @@ class PaymentRepository {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id').replace(
       queryParameters: {'scope': scope},
     );
-    final response = await http.put(
+    final response = await _client.put(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(_payload(
@@ -94,12 +99,12 @@ class PaymentRepository {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/paid').replace(
       queryParameters: accountId == null ? null : {'accountId': accountId.toString()},
     );
-    final response = await http.patch(uri);
+    final response = await _client.patch(uri);
     _ensureSuccess(response, 'Ödeme tamamlanamadı');
   }
 
   Future<void> markPending(int id) async {
-    final response = await http.patch(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/pending'));
+    final response = await _client.patch(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/pending'));
     _ensureSuccess(response, 'Ödeme bekliyor durumuna alınamadı');
   }
 
@@ -107,7 +112,7 @@ class PaymentRepository {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id').replace(
       queryParameters: {'scope': scope},
     );
-    final response = await http.delete(uri);
+    final response = await _client.delete(uri);
     _ensureSuccess(response, 'Ödeme silinemedi');
   }
 
