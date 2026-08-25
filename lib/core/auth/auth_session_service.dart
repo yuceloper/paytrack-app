@@ -16,6 +16,9 @@ class AuthSessionService {
   static const _refreshTokenKey = 'auth.refreshToken';
   static const _guestKey = 'auth.guest';
   static const _bootstrapTimeout = Duration(seconds: 8);
+  static const _refreshTimeout = Duration(seconds: 8);
+
+  static Future<void>? _refreshInFlight;
 
   static Future<void> initialize() async {
     final userId = int.tryParse(await _storage.read(key: _userIdKey) ?? '');
@@ -41,13 +44,58 @@ class AuthSessionService {
     );
   }
 
+  static Future<void> refreshSession() {
+    final existing = _refreshInFlight;
+    if (existing != null) return existing;
+
+    final refresh = _performRefresh().timeout(
+      _refreshTimeout,
+      onTimeout: () => throw TimeoutException(
+        'Oturum yenilenirken sunucuya ${_refreshTimeout.inSeconds} saniye içinde ulaşılamadı.',
+      ),
+    );
+    _refreshInFlight = refresh;
+
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) {
+        _refreshInFlight = null;
+      }
+    });
+  }
+
+  static Future<void> _performRefresh() async {
+    final refreshToken = SessionStore.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw const AuthSessionExpiredException('Refresh token bulunamadı.');
+    }
+
+    final response = await http.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'refreshToken': refreshToken}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403) {
+        throw const AuthSessionExpiredException('Oturum süresi doldu.');
+      }
+      throw Exception('Oturum yenilenemedi (${response.statusCode})');
+    }
+
+    await _applySessionResponse(response.body);
+  }
+
   static Future<void> _createGuestSession() async {
     final response = await http.post(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/guest'));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Guest oturumu oluşturulamadı (${response.statusCode})');
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    await _applySessionResponse(response.body);
+  }
+
+  static Future<void> _applySessionResponse(String responseBody) async {
+    final body = jsonDecode(responseBody) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     final userId = (data['userId'] as num).toInt();
     final accessToken = data['accessToken'] as String;
@@ -68,4 +116,13 @@ class AuthSessionService {
       _storage.write(key: _guestKey, value: guest.toString()),
     ]);
   }
+}
+
+class AuthSessionExpiredException implements Exception {
+  final String message;
+
+  const AuthSessionExpiredException(this.message);
+
+  @override
+  String toString() => message;
 }
