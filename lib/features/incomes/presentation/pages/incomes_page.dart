@@ -164,6 +164,7 @@ class _MetricCard extends StatelessWidget {
 
 class _AddIncomeSheet extends StatefulWidget {
   const _AddIncomeSheet();
+
   @override
   State<_AddIncomeSheet> createState() => _AddIncomeSheetState();
 }
@@ -172,21 +173,44 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   final _repository = IncomeRepository();
   final _name = TextEditingController();
   final _amount = TextEditingController();
+  final _interval = TextEditingController(text: '1');
+
   String _type = 'SALARY';
   String _frequency = 'MONTHLY';
   DateTime _date = DateTime.now();
+  DateTime? _endDate;
   bool _saving = false;
 
   @override
   void dispose() {
     _name.dispose();
     _amount.dispose();
+    _interval.dispose();
     super.dispose();
   }
 
+  bool get _isRecurring => _frequency != 'ONE_TIME';
+
+  bool get _usesMonthlyAnchor =>
+      _frequency == 'MONTHLY' || _frequency == 'CUSTOM_MONTHS';
+
+  bool get _customInterval =>
+      _frequency == 'CUSTOM_DAYS' || _frequency == 'CUSTOM_MONTHS';
+
+  String get _intervalLabel => switch (_frequency) {
+        'CUSTOM_DAYS' => 'Kaç günde bir',
+        'CUSTOM_MONTHS' => 'Kaç ayda bir',
+        'WEEKLY' => 'Kaç haftada bir',
+        'YEARLY' => 'Kaç yılda bir',
+        _ => 'Kaç ayda bir',
+      };
+
   Future<void> _save() async {
     final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
+    final interval = _isRecurring ? int.tryParse(_interval.text) : null;
     if (_name.text.trim().isEmpty || amount == null || amount <= 0) return;
+    if (_isRecurring && (interval == null || interval < 1)) return;
+
     setState(() => _saving = true);
     try {
       await _repository.createSource(
@@ -195,6 +219,8 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
         amount: amount,
         frequency: _frequency,
         nextIncomeDate: _date,
+        recurrenceInterval: interval,
+        recurrenceEndDate: _isRecurring ? _endDate : null,
       );
       if (mounted) Navigator.pop(context, true);
     } finally {
@@ -235,10 +261,25 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
               DropdownMenuItem(value: 'MONTHLY', child: Text('Aylık')),
               DropdownMenuItem(value: 'WEEKLY', child: Text('Haftalık')),
               DropdownMenuItem(value: 'YEARLY', child: Text('Yıllık')),
+              DropdownMenuItem(value: 'CUSTOM_DAYS', child: Text('Özel • gün aralığı')),
+              DropdownMenuItem(value: 'CUSTOM_MONTHS', child: Text('Özel • ay aralığı')),
               DropdownMenuItem(value: 'ONE_TIME', child: Text('Tek seferlik')),
             ],
-            onChanged: (v) => setState(() => _frequency = v ?? 'ONE_TIME'),
+            onChanged: (v) => setState(() {
+              _frequency = v ?? 'ONE_TIME';
+              if (!_customInterval) _interval.text = '1';
+              if (!_isRecurring) _endDate = null;
+            }),
           ),
+          if (_isRecurring) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _interval,
+              enabled: _customInterval,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: _intervalLabel, border: const OutlineInputBorder()),
+            ),
+          ],
           const SizedBox(height: 12),
           ListTile(
             shape: RoundedRectangleBorder(side: BorderSide(color: Theme.of(context).colorScheme.outline), borderRadius: BorderRadius.circular(4)),
@@ -247,9 +288,54 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
             trailing: const Icon(Icons.calendar_month),
             onTap: () async {
               final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime(2100));
-              if (picked != null) setState(() => _date = picked);
+              if (picked != null) {
+                setState(() {
+                  _date = picked;
+                  if (_endDate != null && _endDate!.isBefore(_date)) _endDate = null;
+                });
+              }
             },
           ),
+          if (_isRecurring) ...[
+            const SizedBox(height: 12),
+            ListTile(
+              shape: RoundedRectangleBorder(side: BorderSide(color: Theme.of(context).colorScheme.outline), borderRadius: BorderRadius.circular(4)),
+              title: const Text('Bitiş tarihi'),
+              subtitle: Text(_endDate == null ? 'Süresiz' : DateFormat('d MMMM yyyy', 'tr_TR').format(_endDate!)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_endDate != null)
+                    IconButton(
+                      tooltip: 'Bitiş tarihini kaldır',
+                      onPressed: () => setState(() => _endDate = null),
+                      icon: const Icon(Icons.close),
+                    ),
+                  const Icon(Icons.event_repeat),
+                ],
+              ),
+              onTap: () async {
+                final initial = _endDate ?? _date.add(const Duration(days: 30));
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: initial.isBefore(_date) ? _date : initial,
+                  firstDate: _date,
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setState(() => _endDate = picked);
+              },
+            ),
+            if (_usesMonthlyAnchor) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Ayın ${_date.day}. günü hedeflenir; kısa aylarda otomatik olarak ayın son gününe çekilir.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
