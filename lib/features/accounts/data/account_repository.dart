@@ -39,6 +39,7 @@ class AccountTransactionItem {
   final String type;
   final int accountId;
   final int? counterAccountId;
+  final int? categoryId;
   final double amount;
   final String currency;
   final DateTime occurredOn;
@@ -52,6 +53,7 @@ class AccountTransactionItem {
     required this.type,
     required this.accountId,
     required this.counterAccountId,
+    required this.categoryId,
     required this.amount,
     required this.currency,
     required this.occurredOn,
@@ -66,6 +68,7 @@ class AccountTransactionItem {
         type: json['type'] as String,
         accountId: (json['accountId'] as num).toInt(),
         counterAccountId: (json['counterAccountId'] as num?)?.toInt(),
+        categoryId: (json['categoryId'] as num?)?.toInt(),
         amount: (json['amount'] as num).toDouble(),
         currency: json['currency'] as String? ?? 'TRY',
         occurredOn: DateTime.parse(json['occurredOn'] as String),
@@ -161,6 +164,30 @@ class AccountRepository {
         'toAccountId': toAccountId,
         'amount': amount,
         'description': description,
+      }),
+    );
+    _ensureSuccess(response);
+  }
+
+  Future<void> createManualTransaction({
+    required int accountId,
+    required String type,
+    required double amount,
+    required String description,
+    required DateTime occurredOn,
+    int? categoryId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions/manual'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'userId': AppConfig.demoUserId,
+        'accountId': accountId,
+        'type': type,
+        'amount': amount,
+        'categoryId': categoryId,
+        'description': description,
+        'occurredOn': _date(occurredOn),
       }),
     );
     _ensureSuccess(response);
