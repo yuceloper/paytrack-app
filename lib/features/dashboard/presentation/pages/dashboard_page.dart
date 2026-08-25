@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../analytics/presentation/pages/analytics_page.dart';
 import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/presentation/pages/add_payment_page.dart';
 import '../../../payments/presentation/pages/payment_detail_page.dart';
@@ -19,6 +20,13 @@ class DashboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('PayTrack'),
         actions: [
+          IconButton(
+            tooltip: 'İstatistikler',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AnalyticsPage()),
+            ),
+            icon: const Icon(Icons.bar_chart_outlined),
+          ),
           IconButton(
             tooltip: 'Yenile',
             onPressed: () => ref.invalidate(dashboardProvider),
