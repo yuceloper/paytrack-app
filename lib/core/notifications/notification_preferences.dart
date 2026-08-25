@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationPreferences {
+  final bool enabled;
   final bool dayBeforeEnabled;
   final bool dueDayEnabled;
   final bool overdueEnabled;
@@ -12,6 +13,7 @@ class NotificationPreferences {
   final TimeOfDay incomeDayTime;
 
   const NotificationPreferences({
+    this.enabled = true,
     this.dayBeforeEnabled = true,
     this.dueDayEnabled = true,
     this.overdueEnabled = true,
@@ -23,6 +25,7 @@ class NotificationPreferences {
   });
 
   NotificationPreferences copyWith({
+    bool? enabled,
     bool? dayBeforeEnabled,
     bool? dueDayEnabled,
     bool? overdueEnabled,
@@ -33,6 +36,7 @@ class NotificationPreferences {
     TimeOfDay? incomeDayTime,
   }) {
     return NotificationPreferences(
+      enabled: enabled ?? this.enabled,
       dayBeforeEnabled: dayBeforeEnabled ?? this.dayBeforeEnabled,
       dueDayEnabled: dueDayEnabled ?? this.dueDayEnabled,
       overdueEnabled: overdueEnabled ?? this.overdueEnabled,
@@ -46,6 +50,7 @@ class NotificationPreferences {
 }
 
 class NotificationPreferencesStore {
+  static const _enabledKey = 'notification.enabled';
   static const _dayBeforeEnabledKey = 'notification.dayBefore.enabled';
   static const _dueDayEnabledKey = 'notification.dueDay.enabled';
   static const _overdueEnabledKey = 'notification.overdue.enabled';
@@ -60,6 +65,7 @@ class NotificationPreferencesStore {
     const defaults = NotificationPreferences();
 
     return NotificationPreferences(
+      enabled: prefs.getBool(_enabledKey) ?? defaults.enabled,
       dayBeforeEnabled: prefs.getBool(_dayBeforeEnabledKey) ?? defaults.dayBeforeEnabled,
       dueDayEnabled: prefs.getBool(_dueDayEnabledKey) ?? defaults.dueDayEnabled,
       overdueEnabled: prefs.getBool(_overdueEnabledKey) ?? defaults.overdueEnabled,
@@ -74,6 +80,7 @@ class NotificationPreferencesStore {
   Future<void> save(NotificationPreferences value) async {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
+      prefs.setBool(_enabledKey, value.enabled),
       prefs.setBool(_dayBeforeEnabledKey, value.dayBeforeEnabled),
       prefs.setBool(_dueDayEnabledKey, value.dueDayEnabled),
       prefs.setBool(_overdueEnabledKey, value.overdueEnabled),
