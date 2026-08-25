@@ -19,11 +19,14 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   final _amountController = TextEditingController();
   final _institutionController = TextEditingController();
   final _noteController = TextEditingController();
+  final _intervalController = TextEditingController(text: '1');
   final _repository = PaymentRepository();
 
   String _type = 'OTHER';
   DateTime _dueDate = DateTime.now();
   bool _recurring = false;
+  String _recurrenceFrequency = 'MONTHLY';
+  DateTime? _recurrenceEndDate;
   bool _saving = false;
 
   @override
@@ -38,6 +41,9 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
       _type = payment.type;
       _dueDate = payment.dueDate;
       _recurring = payment.recurring;
+      _recurrenceFrequency = payment.recurrenceFrequency ?? 'MONTHLY';
+      _intervalController.text = (payment.recurrenceInterval ?? 1).toString();
+      _recurrenceEndDate = payment.recurrenceEndDate;
     }
   }
 
@@ -47,6 +53,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
     _amountController.dispose();
     _institutionController.dispose();
     _noteController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
@@ -54,13 +61,17 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
+      final interval = _recurring ? int.parse(_intervalController.text) : null;
       final args = (
         name: _nameController.text.trim(),
         type: _type,
         amount: double.parse(_amountController.text.replaceAll(',', '.')),
         dueDate: _dueDate,
         recurring: _recurring,
-        recurrenceDay: _recurring ? _dueDate.day : null,
+        recurrenceDay: _recurring && _usesMonthlyAnchor ? _dueDate.day : null,
+        recurrenceFrequency: _recurring ? _recurrenceFrequency : null,
+        recurrenceInterval: interval,
+        recurrenceEndDate: _recurring ? _recurrenceEndDate : null,
         institution: _institutionController.text.trim().isEmpty ? null : _institutionController.text.trim(),
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       );
@@ -74,6 +85,9 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
           dueDate: args.dueDate,
           recurring: args.recurring,
           recurrenceDay: args.recurrenceDay,
+          recurrenceFrequency: args.recurrenceFrequency,
+          recurrenceInterval: args.recurrenceInterval,
+          recurrenceEndDate: args.recurrenceEndDate,
           institution: args.institution,
           note: args.note,
         );
@@ -85,6 +99,9 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
           dueDate: args.dueDate,
           recurring: args.recurring,
           recurrenceDay: args.recurrenceDay,
+          recurrenceFrequency: args.recurrenceFrequency,
+          recurrenceInterval: args.recurrenceInterval,
+          recurrenceEndDate: args.recurrenceEndDate,
           institution: args.institution,
           note: args.note,
         );
@@ -98,6 +115,25 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  bool get _usesMonthlyAnchor =>
+      _recurrenceFrequency == 'MONTHLY' || _recurrenceFrequency == 'CUSTOM_MONTHS';
+
+  String get _intervalLabel => switch (_recurrenceFrequency) {
+        'WEEKLY' => 'Kaç haftada bir',
+        'YEARLY' => 'Kaç yılda bir',
+        'CUSTOM_DAYS' => 'Kaç günde bir',
+        'CUSTOM_MONTHS' => 'Kaç ayda bir',
+        _ => 'Kaç ayda bir',
+      };
+
+  String get _recurrenceSummary => switch (_recurrenceFrequency) {
+        'WEEKLY' => 'Haftalık',
+        'YEARLY' => 'Yıllık',
+        'CUSTOM_DAYS' => 'Özel gün aralığı',
+        'CUSTOM_MONTHS' => 'Özel ay aralığı',
+        _ => 'Aylık',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -158,11 +194,87 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Tekrarlayan ödeme'),
-              subtitle: const Text('Her ay aynı gün tekrarlar'),
+              subtitle: Text(_recurring ? _recurrenceSummary : 'Tek seferlik ödeme'),
               value: _recurring,
               onChanged: (value) => setState(() => _recurring = value),
             ),
-            const SizedBox(height: 8),
+            if (_recurring) ...[
+              const SizedBox(height: 4),
+              DropdownButtonFormField<String>(
+                initialValue: _recurrenceFrequency,
+                decoration: const InputDecoration(labelText: 'Tekrar sıklığı', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'WEEKLY', child: Text('Haftalık')),
+                  DropdownMenuItem(value: 'MONTHLY', child: Text('Aylık')),
+                  DropdownMenuItem(value: 'YEARLY', child: Text('Yıllık')),
+                  DropdownMenuItem(value: 'CUSTOM_DAYS', child: Text('Özel • gün aralığı')),
+                  DropdownMenuItem(value: 'CUSTOM_MONTHS', child: Text('Özel • ay aralığı')),
+                ],
+                onChanged: (value) => setState(() {
+                  _recurrenceFrequency = value ?? 'MONTHLY';
+                  if (_recurrenceFrequency == 'MONTHLY' ||
+                      _recurrenceFrequency == 'WEEKLY' ||
+                      _recurrenceFrequency == 'YEARLY') {
+                    _intervalController.text = '1';
+                  }
+                }),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _intervalController,
+                enabled: _recurrenceFrequency == 'CUSTOM_DAYS' || _recurrenceFrequency == 'CUSTOM_MONTHS',
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: _intervalLabel, border: const OutlineInputBorder()),
+                validator: (value) {
+                  if (!_recurring) return null;
+                  final parsed = int.tryParse(value ?? '');
+                  return parsed == null || parsed < 1 ? 'En az 1 olmalı' : null;
+                },
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: Theme.of(context).colorScheme.outline),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                title: const Text('Bitiş tarihi'),
+                subtitle: Text(
+                  _recurrenceEndDate == null
+                      ? 'Süresiz'
+                      : '${_recurrenceEndDate!.day}.${_recurrenceEndDate!.month}.${_recurrenceEndDate!.year}',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_recurrenceEndDate != null)
+                      IconButton(
+                        tooltip: 'Bitiş tarihini kaldır',
+                        onPressed: () => setState(() => _recurrenceEndDate = null),
+                        icon: const Icon(Icons.close),
+                      ),
+                    const Icon(Icons.event_repeat),
+                  ],
+                ),
+                onTap: () async {
+                  final initial = _recurrenceEndDate ?? _dueDate.add(const Duration(days: 30));
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initial.isBefore(_dueDate) ? _dueDate : initial,
+                    firstDate: _dueDate,
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) setState(() => _recurrenceEndDate = picked);
+                },
+              ),
+              if (_usesMonthlyAnchor) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Ayın ${_dueDate.day}. günü hedeflenir; kısa aylarda otomatik olarak ayın son gününe çekilir.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+            const SizedBox(height: 14),
             TextFormField(
               controller: _institutionController,
               decoration: const InputDecoration(labelText: 'Kurum / banka', border: OutlineInputBorder()),
