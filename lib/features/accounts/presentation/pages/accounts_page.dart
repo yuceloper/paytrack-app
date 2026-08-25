@@ -20,9 +20,7 @@ class _AccountsPageState extends State<AccountsPage> {
     _reload();
   }
 
-  void _reload() {
-    _future = _repository.fetchAll();
-  }
+  void _reload() => _future = _repository.fetchAll();
 
   Future<void> _add() async {
     final created = await showModalBottomSheet<bool>(
@@ -33,12 +31,30 @@ class _AccountsPageState extends State<AccountsPage> {
     if (created == true) setState(_reload);
   }
 
+  Future<void> _transfer(List<AccountItem> accounts) async {
+    final active = accounts.where((e) => e.active && e.currency == 'TRY').toList();
+    if (active.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transfer için en az iki aktif TRY hesabı gerekli.')),
+      );
+      return;
+    }
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _TransferSheet(accounts: active),
+    );
+    if (changed == true && mounted) setState(_reload);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hesaplar'),
-        actions: [IconButton(onPressed: _add, icon: const Icon(Icons.add))],
+        actions: [
+          IconButton(onPressed: _add, icon: const Icon(Icons.add), tooltip: 'Hesap ekle'),
+        ],
       ),
       body: FutureBuilder<List<AccountItem>>(
         future: _future,
@@ -46,9 +62,7 @@ class _AccountsPageState extends State<AccountsPage> {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
-          }
+          if (snapshot.hasError) return Center(child: Text(snapshot.error.toString()));
           final items = snapshot.data ?? const [];
           final total = items.where((e) => e.active && e.currency == 'TRY').fold<double>(0, (s, e) => s + e.balance);
           return ListView(
@@ -59,6 +73,15 @@ class _AccountsPageState extends State<AccountsPage> {
                   leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet_outlined)),
                   title: const Text('Toplam kullanılabilir bakiye'),
                   trailing: Text(_money(total), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _transfer(items),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Hesaplar arası transfer'),
                 ),
               ),
               const SizedBox(height: 18),
@@ -90,7 +113,7 @@ class _AccountsPageState extends State<AccountsPage> {
         title: Text(account.name),
         content: TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
           decoration: const InputDecoration(labelText: 'Güncel bakiye', prefixText: '₺ '),
         ),
         actions: [
@@ -148,6 +171,100 @@ class _AccountsPageState extends State<AccountsPage> {
       };
 }
 
+class _TransferSheet extends StatefulWidget {
+  final List<AccountItem> accounts;
+  const _TransferSheet({required this.accounts});
+
+  @override
+  State<_TransferSheet> createState() => _TransferSheetState();
+}
+
+class _TransferSheetState extends State<_TransferSheet> {
+  final _repository = AccountRepository();
+  final _amount = TextEditingController();
+  final _description = TextEditingController(text: 'Hesaplar arası transfer');
+  late int _fromId;
+  late int _toId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromId = widget.accounts[0].id;
+    _toId = widget.accounts[1].id;
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
+    if (amount == null || amount <= 0 || _fromId == _toId) return;
+    setState(() => _saving = true);
+    try {
+      await _repository.transfer(
+        fromAccountId: _fromId,
+        toAccountId: _toId,
+        amount: amount,
+        description: _description.text.trim().isEmpty ? 'Hesaplar arası transfer' : _description.text.trim(),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.accounts
+        .map((a) => DropdownMenuItem<int>(value: a.id, child: Text('${a.name} (${_AccountsPageState._money(a.balance)})')))
+        .toList();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Transfer', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 20),
+          DropdownButtonFormField<int>(
+            initialValue: _fromId,
+            decoration: const InputDecoration(labelText: 'Gönderen hesap', border: OutlineInputBorder()),
+            items: items,
+            onChanged: (v) => setState(() => _fromId = v ?? _fromId),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            initialValue: _toId,
+            decoration: const InputDecoration(labelText: 'Alıcı hesap', border: OutlineInputBorder()),
+            items: items,
+            onChanged: (v) => setState(() => _toId = v ?? _toId),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Tutar', prefixText: '₺ ', border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: _description, decoration: const InputDecoration(labelText: 'Açıklama', border: OutlineInputBorder())),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: const Icon(Icons.swap_horiz),
+              label: Text(_saving ? 'Aktarılıyor...' : 'Transferi yap'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 class _AddAccountSheet extends StatefulWidget {
   const _AddAccountSheet();
 
@@ -176,12 +293,7 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
     if (_name.text.trim().isEmpty || balance == null) return;
     setState(() => _saving = true);
     try {
-      await _repository.create(
-        name: _name.text.trim(),
-        type: _type,
-        balance: balance,
-        institution: _institution.text,
-      );
+      await _repository.create(name: _name.text.trim(), type: _type, balance: balance, institution: _institution.text);
       if (mounted) Navigator.pop(context, true);
     } finally {
       if (mounted) setState(() => _saving = false);
