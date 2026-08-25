@@ -97,8 +97,8 @@ class _AccountTransactionsPageState extends State<AccountTransactionsPage> {
                     if (category != null) category,
                     if (tx.reversed) 'Terslendi',
                   ].join(' • ');
-                  final accent = _accent(tx.type);
-                  final accentSoft = _accentSoft(tx.type);
+                  final accent = _accent(context, tx.type);
+                  final accentSoft = _accentSoft(context, tx.type);
                   return Card(
                     child: ListTile(
                       leading: CircleAvatar(
@@ -136,18 +136,18 @@ class _AccountTransactionsPageState extends State<AccountTransactionsPage> {
         _ => Icons.tune,
       };
 
-  static Color _accent(String type) => switch (type) {
-        'INCOME' => SemanticColors.income,
-        'EXPENSE' => SemanticColors.expense,
-        'TRANSFER' => SemanticColors.transfer,
-        _ => SemanticColors.transfer,
+  static Color _accent(BuildContext context, String type) => switch (type) {
+        'INCOME' => SemanticColors.incomeFor(context),
+        'EXPENSE' => SemanticColors.expenseFor(context),
+        'TRANSFER' => SemanticColors.transferFor(context),
+        _ => SemanticColors.transferFor(context),
       };
 
-  static Color _accentSoft(String type) => switch (type) {
-        'INCOME' => SemanticColors.incomeSoft,
-        'EXPENSE' => SemanticColors.expenseSoft,
-        'TRANSFER' => SemanticColors.transferSoft,
-        _ => SemanticColors.transferSoft,
+  static Color _accentSoft(BuildContext context, String type) => switch (type) {
+        'INCOME' => SemanticColors.incomeSoftFor(context),
+        'EXPENSE' => SemanticColors.expenseSoftFor(context),
+        'TRANSFER' => SemanticColors.transferSoftFor(context),
+        _ => SemanticColors.transferSoftFor(context),
       };
 }
 
