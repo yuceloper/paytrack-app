@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/theme/semantic_colors.dart';
 import '../../../categories/data/category_repository.dart';
 import '../../data/account_repository.dart';
 
@@ -96,15 +97,26 @@ class _AccountTransactionsPageState extends State<AccountTransactionsPage> {
                     if (category != null) category,
                     if (tx.reversed) 'Terslendi',
                   ].join(' • ');
+                  final accent = _accent(tx.type);
+                  final accentSoft = _accentSoft(tx.type);
                   return Card(
                     child: ListTile(
-                      leading: CircleAvatar(child: Icon(_icon(tx.type))),
+                      leading: CircleAvatar(
+                        backgroundColor: accentSoft,
+                        child: Icon(_icon(tx.type), color: accent),
+                      ),
                       title: Text(
                         tx.description,
                         style: TextStyle(decoration: tx.reversed ? TextDecoration.lineThrough : null),
                       ),
                       subtitle: Text(details),
-                      trailing: Text(signed, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      trailing: Text(
+                        signed,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: tx.reversed ? Theme.of(context).colorScheme.onSurfaceVariant : accent,
+                        ),
+                      ),
                     ),
                   );
                 }),
@@ -122,6 +134,20 @@ class _AccountTransactionsPageState extends State<AccountTransactionsPage> {
         'EXPENSE' => Icons.north_east,
         'TRANSFER' => Icons.swap_horiz,
         _ => Icons.tune,
+      };
+
+  static Color _accent(String type) => switch (type) {
+        'INCOME' => SemanticColors.income,
+        'EXPENSE' => SemanticColors.expense,
+        'TRANSFER' => SemanticColors.transfer,
+        _ => SemanticColors.transfer,
+      };
+
+  static Color _accentSoft(String type) => switch (type) {
+        'INCOME' => SemanticColors.incomeSoft,
+        'EXPENSE' => SemanticColors.expenseSoft,
+        'TRANSFER' => SemanticColors.transferSoft,
+        _ => SemanticColors.transferSoft,
       };
 }
 
