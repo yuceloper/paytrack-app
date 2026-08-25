@@ -107,8 +107,10 @@ class IncomeRepository {
     _ensureSuccess(response);
   }
 
-  Future<void> markReceived(int id) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received');
+  Future<void> markReceived(int id, {int? accountId}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received').replace(
+      queryParameters: accountId == null ? null : {'accountId': accountId.toString()},
+    );
     _ensureSuccess(await _client.patch(uri));
   }
 
