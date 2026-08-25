@@ -40,8 +40,7 @@ class TransactionCategoryRepository {
   TransactionCategoryRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<List<TransactionCategoryItem>> fetchAll() async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/categories')
-        .replace(queryParameters: {'userId': AppConfig.demoUserId.toString()});
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/categories');
     final response = await _client.get(uri);
     _ensureSuccess(response);
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -58,7 +57,6 @@ class TransactionCategoryRepository {
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/categories'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'userId': AppConfig.demoUserId,
         'name': name,
         'type': type,
         'iconKey': iconKey,
