@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 
 class CategoryAnalyticsItem {
   final int? categoryId;
@@ -72,7 +73,7 @@ class MonthlyAnalytics {
 class AnalyticsRepository {
   final http.Client _client;
 
-  AnalyticsRepository({http.Client? client}) : _client = client ?? http.Client();
+  AnalyticsRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<MonthlyAnalytics> fetchMonthly(DateTime month) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/analytics/monthly').replace(
