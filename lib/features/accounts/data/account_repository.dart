@@ -86,8 +86,7 @@ class AccountRepository {
   AccountRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<List<AccountItem>> fetchAll() async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts')
-        .replace(queryParameters: {'userId': AppConfig.demoUserId.toString()});
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts');
     final response = await _client.get(uri);
     _ensureSuccess(response);
     final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -100,7 +99,6 @@ class AccountRepository {
     required DateTime to,
   }) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions').replace(queryParameters: {
-      'userId': AppConfig.demoUserId.toString(),
       'from': _date(from),
       'to': _date(to),
     });
@@ -121,7 +119,6 @@ class AccountRepository {
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'userId': AppConfig.demoUserId,
         'name': name,
         'type': type,
         'institution': institution?.trim().isEmpty == true ? null : institution?.trim(),
@@ -138,7 +135,6 @@ class AccountRepository {
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts/${account.id}'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'userId': AppConfig.demoUserId,
         'name': account.name,
         'type': account.type,
         'institution': account.institution,
@@ -160,7 +156,6 @@ class AccountRepository {
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions/transfer'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'userId': AppConfig.demoUserId,
         'fromAccountId': fromAccountId,
         'toAccountId': toAccountId,
         'amount': amount,
@@ -182,7 +177,6 @@ class AccountRepository {
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions/manual'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'userId': AppConfig.demoUserId,
         'accountId': accountId,
         'type': type,
         'amount': amount,
