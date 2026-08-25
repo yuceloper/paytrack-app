@@ -100,7 +100,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
                       Card(
-                        color: pendingTotal > 0 ? SemanticColors.expenseSoft : null,
+                        color: pendingTotal > 0 ? SemanticColors.expenseSoftFor(context) : null,
                         child: ListTile(
                           title: const Text('Kalan toplam'),
                           trailing: Text(
@@ -108,7 +108,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: pendingTotal > 0 ? SemanticColors.expense : null,
+                              color: pendingTotal > 0 ? SemanticColors.expenseFor(context) : null,
                             ),
                           ),
                         ),
@@ -140,8 +140,8 @@ class _PaymentListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat('d MMMM', 'tr_TR').format(payment.dueDate);
     final amount = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(payment.amount);
-    final accent = payment.paid ? SemanticColors.income : SemanticColors.expense;
-    final accentSoft = payment.paid ? SemanticColors.incomeSoft : SemanticColors.expenseSoft;
+    final accent = payment.paid ? SemanticColors.incomeFor(context) : SemanticColors.expenseFor(context);
+    final accentSoft = payment.paid ? SemanticColors.incomeSoftFor(context) : SemanticColors.expenseSoftFor(context);
 
     return Card(
       child: ListTile(
