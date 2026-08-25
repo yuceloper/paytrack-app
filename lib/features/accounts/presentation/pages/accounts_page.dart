@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/account_repository.dart';
+import '../widgets/manual_transaction_sheet.dart';
 import 'account_transactions_page.dart';
 
 class AccountsPage extends StatefulWidget {
@@ -30,6 +31,22 @@ class _AccountsPageState extends State<AccountsPage> {
       builder: (_) => const _AddAccountSheet(),
     );
     if (created == true) setState(_reload);
+  }
+
+  Future<void> _manualTransaction(List<AccountItem> accounts) async {
+    final active = accounts.where((e) => e.active && e.currency == 'TRY').toList();
+    if (active.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce aktif bir TRY hesabı eklemelisin.')),
+      );
+      return;
+    }
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ManualTransactionSheet(accounts: active),
+    );
+    if (changed == true && mounted) setState(_reload);
   }
 
   Future<void> _transfer(List<AccountItem> accounts) async {
@@ -85,13 +102,24 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _transfer(items),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Hesaplar arası transfer'),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => _manualTransaction(items),
+                      icon: const Icon(Icons.add_card),
+                      label: const Text('Hareket ekle'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _transfer(items),
+                      icon: const Icon(Icons.swap_horiz),
+                      label: const Text('Transfer'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
               if (items.isEmpty)
