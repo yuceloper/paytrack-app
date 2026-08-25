@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/authenticated_client.dart';
 
 class IncomeSourceItem {
   final int id;
@@ -79,7 +80,7 @@ class IncomeOccurrenceItem {
 class IncomeRepository {
   final http.Client _client;
 
-  IncomeRepository({http.Client? client}) : _client = client ?? http.Client();
+  IncomeRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<List<IncomeOccurrenceItem>> fetchMonth(DateTime month) async {
     final from = DateTime(month.year, month.month, 1);
