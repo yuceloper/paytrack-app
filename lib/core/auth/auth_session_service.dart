@@ -63,6 +63,46 @@ class AuthSessionService {
     });
   }
 
+  static Future<void> logoutAndCreateGuest() async {
+    final refreshToken = SessionStore.refreshToken;
+    final accessToken = SessionStore.accessToken;
+
+    if (refreshToken != null && refreshToken.isNotEmpty && accessToken != null && accessToken.isNotEmpty) {
+      try {
+        await http
+            .post(
+              Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $accessToken',
+              },
+              body: jsonEncode({'refreshToken': refreshToken}),
+            )
+            .timeout(_bootstrapTimeout);
+      } catch (_) {
+        // Local logout should still succeed even if the server is temporarily unreachable.
+      }
+    }
+
+    await clearLocalSession();
+    await _createGuestSession().timeout(
+      _bootstrapTimeout,
+      onTimeout: () => throw TimeoutException(
+        'Yeni misafir oturumu oluşturulurken sunucuya ${_bootstrapTimeout.inSeconds} saniye içinde ulaşılamadı.',
+      ),
+    );
+  }
+
+  static Future<void> clearLocalSession() async {
+    SessionStore.clear();
+    await Future.wait([
+      _storage.delete(key: _userIdKey),
+      _storage.delete(key: _accessTokenKey),
+      _storage.delete(key: _refreshTokenKey),
+      _storage.delete(key: _guestKey),
+    ]);
+  }
+
   static Future<void> _performRefresh() async {
     final refreshToken = SessionStore.refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) {
