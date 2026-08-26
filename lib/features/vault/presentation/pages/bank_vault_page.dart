@@ -158,14 +158,17 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
                 child: FilledButton(
                   onPressed: () {
                     if (bank.text.trim().isEmpty || password.text.isEmpty) return;
+                    final now = DateTime.now();
                     Navigator.pop(
                       context,
                       BankVaultEntry(
-                        id: DateTime.now().microsecondsSinceEpoch.toString(),
+                        id: now.microsecondsSinceEpoch.toString(),
                         bankName: bank.text.trim(),
                         username: username.text.trim(),
                         password: password.text,
                         note: note.text.trim(),
+                        createdAt: now,
+                        updatedAt: now,
                       ),
                     );
                   },
@@ -187,6 +190,68 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
     if (mounted) setState(() => _entries = updated);
   }
 
+  Future<void> _editEntry(BankVaultEntry entry) async {
+    final ok = await _confirmSensitiveAction('${entry.bankName} kasa kaydını düzenlemek için doğrulayın.');
+    if (!ok || !mounted) return;
+
+    final bank = TextEditingController(text: entry.bankName);
+    final username = TextEditingController(text: entry.username);
+    final password = TextEditingController(text: entry.password);
+    final note = TextEditingController(text: entry.note);
+    final edited = await showModalBottomSheet<BankVaultEntry>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Kasa kaydını düzenle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              TextField(controller: bank, decoration: const InputDecoration(labelText: 'Banka adı')),
+              const SizedBox(height: 12),
+              TextField(controller: username, decoration: const InputDecoration(labelText: 'Müşteri / kullanıcı no')),
+              const SizedBox(height: 12),
+              TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')),
+              const SizedBox(height: 12),
+              TextField(controller: note, decoration: const InputDecoration(labelText: 'Not (opsiyonel)')),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    if (bank.text.trim().isEmpty || password.text.isEmpty) return;
+                    Navigator.pop(
+                      context,
+                      entry.copyWith(
+                        bankName: bank.text.trim(),
+                        username: username.text.trim(),
+                        password: password.text,
+                        note: note.text.trim(),
+                        updatedAt: password.text == entry.password ? entry.updatedAt : DateTime.now(),
+                      ),
+                    );
+                  },
+                  child: const Text('Kaydet'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    bank.dispose();
+    username.dispose();
+    password.dispose();
+    note.dispose();
+    if (edited == null) return;
+
+    final updated = _entries.map((e) => e.id == entry.id ? edited : e).toList();
+    await _service.save(updated);
+    if (mounted) setState(() => _entries = updated);
+  }
+
   Future<void> _delete(BankVaultEntry entry) async {
     final ok = await _confirmSensitiveAction('${entry.bankName} kaydını silmek için doğrulayın.');
     if (!ok) return;
@@ -194,6 +259,18 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
     await _service.save(updated);
     if (mounted) setState(() => _entries = updated);
   }
+
+  String _passwordAge(BankVaultEntry entry) {
+    final days = DateTime.now().difference(entry.updatedAt).inDays;
+    if (days <= 0) return 'Şifre bugün kaydedildi';
+    if (days < 30) return 'Şifre $days gün önce güncellendi';
+    final months = days ~/ 30;
+    if (months < 12) return 'Şifre $months ay önce güncellendi';
+    final years = days ~/ 365;
+    return 'Şifre $years yıl önce güncellendi';
+  }
+
+  bool _passwordIsOld(BankVaultEntry entry) => DateTime.now().difference(entry.updatedAt).inDays >= 180;
 
   @override
   Widget build(BuildContext context) {
@@ -275,18 +352,37 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
             ..._entries.map(
               (entry) => Card(
                 child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.account_balance_outlined)),
+                  leading: CircleAvatar(
+                    child: Icon(_passwordIsOld(entry) ? Icons.warning_amber_rounded : Icons.account_balance_outlined),
+                  ),
                   title: Text(entry.bankName),
-                  subtitle: Text(entry.username.isEmpty ? 'Kullanıcı bilgisi eklenmedi' : entry.username),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.username.isEmpty ? 'Kullanıcı bilgisi eklenmedi' : entry.username),
+                      const SizedBox(height: 3),
+                      Text(
+                        _passwordIsOld(entry)
+                            ? '${_passwordAge(entry)} • Değiştirmeyi düşünebilirsiniz'
+                            : _passwordAge(entry),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _passwordIsOld(entry) ? Theme.of(context).colorScheme.error : null,
+                        ),
+                      ),
+                    ],
+                  ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'show') _showPassword(entry);
                       if (value == 'copy') _copyPassword(entry);
+                      if (value == 'edit') _editEntry(entry);
                       if (value == 'delete') _delete(entry);
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'show', child: Text('Şifreyi göster')),
                       PopupMenuItem(value: 'copy', child: Text('Şifreyi kopyala')),
+                      PopupMenuItem(value: 'edit', child: Text('Düzenle / şifreyi güncelle')),
                       PopupMenuItem(value: 'delete', child: Text('Sil')),
                     ],
                   ),
