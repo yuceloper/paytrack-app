@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/calendar/presentation/pages/calendar_page.dart';
 import '../features/cashflow/presentation/pages/cash_flow_page.dart';
+import '../features/creditcards/presentation/pages/credit_cards_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/incomes/presentation/pages/incomes_page.dart';
 import '../features/payments/presentation/pages/payments_page.dart';
@@ -22,6 +23,7 @@ class _MainShellState extends State<MainShell> {
     CashFlowPage(),
     PaymentsPage(),
     IncomesPage(),
+    CreditCardsPage(),
   ];
 
   @override
@@ -56,6 +58,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.trending_up_outlined),
             selectedIcon: Icon(Icons.trending_up),
             label: 'Gelirler',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.credit_card_outlined),
+            selectedIcon: Icon(Icons.credit_card),
+            label: 'Kartlar',
           ),
         ],
       ),
