@@ -19,7 +19,7 @@ class DashboardRepository {
 
   DashboardRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
-  Future<DashboardData> fetchDashboard({int? userId}) async {
+  Future<DashboardData> fetchDashboard() async {
     final results = await Future.wait([
       _get('/api/v1/dashboard/summary'),
       _get('/api/v1/payments/upcoming?days=7'),
