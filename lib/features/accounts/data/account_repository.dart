@@ -130,17 +130,19 @@ class AccountRepository {
     _ensureSuccess(response);
   }
 
-  Future<void> update(AccountItem account, {required double balance}) async {
-    final response = await _client.put(
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/accounts/${account.id}'),
+  Future<void> adjustBalance({
+    required int accountId,
+    required double targetBalance,
+    required String description,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/account-transactions/balance-adjustment'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'name': account.name,
-        'type': account.type,
-        'institution': account.institution,
-        'balance': balance,
-        'currency': account.currency,
-        'active': account.active,
+        'accountId': accountId,
+        'targetBalance': targetBalance,
+        'description': description,
+        'occurredOn': _date(DateTime.now()),
       }),
     );
     _ensureSuccess(response);
