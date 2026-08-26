@@ -7,6 +7,7 @@ import '../../../analytics/presentation/pages/analytics_page.dart';
 import '../../../payments/data/models/payment_item.dart';
 import '../../../payments/presentation/pages/add_payment_page.dart';
 import '../../../payments/presentation/pages/payment_detail_page.dart';
+import '../../../settings/presentation/pages/account_settings_page.dart';
 import '../../../settings/presentation/pages/notification_settings_page.dart';
 import '../../application/dashboard_providers.dart';
 import '../../data/dashboard_repository.dart';
@@ -22,6 +23,13 @@ class DashboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('PayTrack'),
         actions: [
+          IconButton(
+            tooltip: 'Hesap',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AccountSettingsPage()),
+            ),
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
           IconButton(
             tooltip: 'Bildirim ayarları',
             onPressed: () => Navigator.of(context).push(
