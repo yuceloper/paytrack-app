@@ -8,6 +8,8 @@ class BankVaultEntry {
   final String username;
   final String password;
   final String note;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const BankVaultEntry({
     required this.id,
@@ -15,15 +17,39 @@ class BankVaultEntry {
     required this.username,
     required this.password,
     required this.note,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory BankVaultEntry.fromJson(Map<String, dynamic> json) => BankVaultEntry(
-        id: json['id'] as String,
-        bankName: json['bankName'] as String? ?? '',
-        username: json['username'] as String? ?? '',
-        password: json['password'] as String? ?? '',
-        note: json['note'] as String? ?? '',
+  BankVaultEntry copyWith({
+    String? bankName,
+    String? username,
+    String? password,
+    String? note,
+    DateTime? updatedAt,
+  }) =>
+      BankVaultEntry(
+        id: id,
+        bankName: bankName ?? this.bankName,
+        username: username ?? this.username,
+        password: password ?? this.password,
+        note: note ?? this.note,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
       );
+
+  factory BankVaultEntry.fromJson(Map<String, dynamic> json) {
+    final fallback = DateTime.now();
+    return BankVaultEntry(
+      id: json['id'] as String,
+      bankName: json['bankName'] as String? ?? '',
+      username: json['username'] as String? ?? '',
+      password: json['password'] as String? ?? '',
+      note: json['note'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? fallback,
+      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? fallback,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -31,6 +57,8 @@ class BankVaultEntry {
         'username': username,
         'password': password,
         'note': note,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
       };
 }
 
