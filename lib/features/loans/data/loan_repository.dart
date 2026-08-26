@@ -32,9 +32,11 @@ class LoanItem {
     required this.active,
   });
 
-  int get paidInstallments => (totalInstallments - remainingInstallments).clamp(0, totalInstallments);
+  int get paidInstallments =>
+      (totalInstallments - remainingInstallments).clamp(0, totalInstallments);
   double get remainingPayable => installmentAmount * remainingInstallments;
-  double get progress => totalInstallments <= 0 ? 0 : paidInstallments / totalInstallments;
+  double get progress =>
+      totalInstallments <= 0 ? 0 : paidInstallments / totalInstallments;
 
   factory LoanItem.fromJson(Map<String, dynamic> json) => LoanItem(
         id: (json['id'] as num).toInt(),
@@ -43,7 +45,8 @@ class LoanItem {
         installmentAmount: (json['installmentAmount'] as num).toDouble(),
         paymentDay: (json['paymentDay'] as num).toInt(),
         totalInstallments: (json['totalInstallments'] as num).toInt(),
-        remainingInstallments: (json['remainingInstallments'] as num).toInt(),
+        remainingInstallments:
+            (json['remainingInstallments'] as num).toInt(),
         remainingPrincipal: (json['remainingPrincipal'] as num?)?.toDouble(),
         startDate: _parseDate(json['startDate']),
         endDate: _parseDate(json['endDate']),
@@ -59,14 +62,18 @@ class LoanItem {
 class LoanRepository {
   final http.Client _client;
 
-  LoanRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
+  LoanRepository({http.Client? client})
+      : _client = client ?? AuthenticatedClient();
 
   Future<List<LoanItem>> fetchAll() async {
-    final response = await _client.get(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/loans'));
+    final response = await _client
+        .get(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/loans'));
     _ensureSuccess(response);
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final data = body['data'] as List<dynamic>? ?? const [];
-    return data.map((e) => LoanItem.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) => LoanItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> create({
@@ -75,9 +82,8 @@ class LoanRepository {
     required double installmentAmount,
     required int paymentDay,
     required int totalInstallments,
-    required int remainingInstallments,
-    DateTime? startDate,
-    DateTime? endDate,
+    required int paidInstallments,
+    required DateTime startDate,
   }) async {
     final response = await _client.post(
       Uri.parse('${AppConfig.apiBaseUrl}/api/v1/loans'),
@@ -88,22 +94,20 @@ class LoanRepository {
         'installmentAmount': installmentAmount,
         'paymentDay': paymentDay,
         'totalInstallments': totalInstallments,
-        'remainingInstallments': remainingInstallments,
-        'remainingPrincipal': null,
+        'paidInstallments': paidInstallments,
         'startDate': _dateOnly(startDate),
-        'endDate': _dateOnly(endDate),
       }),
     );
     _ensureSuccess(response);
   }
 
   Future<void> delete(int id) async {
-    final response = await _client.delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/loans/$id'));
+    final response = await _client
+        .delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/loans/$id'));
     _ensureSuccess(response, allowNoContent: true);
   }
 
-  String? _dateOnly(DateTime? date) {
-    if (date == null) return null;
+  String _dateOnly(DateTime date) {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
