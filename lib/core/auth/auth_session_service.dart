@@ -82,7 +82,7 @@ class AuthSessionService {
       throw Exception('Oturum yenilenemedi (${response.statusCode})');
     }
 
-    await _applySessionResponse(response.body);
+    await applySessionResponse(response.body);
   }
 
   static Future<void> _createGuestSession() async {
@@ -91,10 +91,10 @@ class AuthSessionService {
       throw Exception('Guest oturumu oluşturulamadı (${response.statusCode})');
     }
 
-    await _applySessionResponse(response.body);
+    await applySessionResponse(response.body);
   }
 
-  static Future<void> _applySessionResponse(String responseBody) async {
+  static Future<void> applySessionResponse(String responseBody) async {
     final body = jsonDecode(responseBody) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     final userId = (data['userId'] as num).toInt();
