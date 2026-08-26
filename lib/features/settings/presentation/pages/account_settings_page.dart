@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/auth/account_profile_service.dart';
+import '../../../../core/auth/auth_session_service.dart';
 import '../../../../core/auth/google_link_service.dart';
 import '../../../../core/auth/session_store.dart';
 
@@ -13,6 +14,7 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _linking = false;
+  bool _loggingOut = false;
   late Future<AccountProfile> _profile;
 
   @override
@@ -105,6 +107,29 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
             ),
           ),
+          if (linked) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loggingOut ? null : _confirmLogout,
+                icon: _loggingOut
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout),
+                label: Text(_loggingOut ? 'Çıkış yapılıyor...' : 'Bu cihazdan çıkış yap'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Çıkış yaptığında Google hesabındaki PayTrack verilerin silinmez. Bu cihaz yeni bir misafir hesapla devam eder.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
     );
@@ -181,6 +206,53 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       );
     } finally {
       if (mounted) setState(() => _linking = false);
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bu cihazdan çıkış yapılsın mı?'),
+        content: const Text(
+          'Google hesabındaki verilerin silinmez. Bu cihaz çıkıştan sonra yeni bir misafir hesapla devam eder.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Çıkış yap'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _logout();
+    }
+  }
+
+  Future<void> _logout() async {
+    setState(() => _loggingOut = true);
+    try {
+      await AuthSessionService.logoutAndCreateGuest();
+      if (!mounted) return;
+      setState(() {
+        _profile = AccountProfileService.load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu cihazdan çıkış yapıldı. Misafir hesapla devam ediyorsun.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _loggingOut = false);
     }
   }
 }
