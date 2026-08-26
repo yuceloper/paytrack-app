@@ -143,32 +143,65 @@ class _AccountsPageState extends State<AccountsPage> {
   }
 
   Future<void> _editBalance(AccountItem account) async {
-    final controller = TextEditingController(text: account.balance.toStringAsFixed(2));
+    final balanceController = TextEditingController(text: account.balance.toStringAsFixed(2));
+    final descriptionController = TextEditingController(text: 'Bakiye düzeltmesi');
     final changed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(account.name),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: const InputDecoration(labelText: 'Güncel bakiye', prefixText: '₺ '),
+        title: Text('${account.name} bakiyesini düzelt'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Mevcut bakiye: ${_money(account.balance)}',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: balanceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              decoration: const InputDecoration(labelText: 'Doğru bakiye', prefixText: '₺ '),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(labelText: 'Açıklama'),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Aradaki fark hesap hareketi olarak kaydedilecek; geçmiş hareketler bozulmayacak.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal')),
           FilledButton(
             onPressed: () async {
-              final value = double.tryParse(controller.text.replaceAll(',', '.'));
-              if (value == null) return;
-              await _repository.update(account, balance: value);
+              final value = double.tryParse(balanceController.text.replaceAll(',', '.'));
+              final description = descriptionController.text.trim();
+              if (value == null || description.isEmpty || value == account.balance) return;
+              await _repository.adjustBalance(
+                accountId: account.id,
+                targetBalance: value,
+                description: description,
+              );
               if (context.mounted) Navigator.pop(context, true);
             },
-            child: const Text('Kaydet'),
+            child: const Text('Düzelt'),
           ),
         ],
       ),
     );
-    controller.dispose();
-    if (changed == true && mounted) setState(_reload);
+    balanceController.dispose();
+    descriptionController.dispose();
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bakiye düzeltmesi hesap hareketlerine kaydedildi.')),
+      );
+      setState(_reload);
+    }
   }
 
   Future<void> _delete(AccountItem account) async {
