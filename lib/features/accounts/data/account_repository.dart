@@ -9,8 +9,11 @@ class AccountItem {
   final int id;
   final String name;
   final String type;
+  final String nature;
   final String? institution;
   final double balance;
+  final double? creditLimit;
+  final double? availableLimit;
   final String currency;
   final bool active;
 
@@ -18,18 +21,27 @@ class AccountItem {
     required this.id,
     required this.name,
     required this.type,
+    required this.nature,
     required this.institution,
     required this.balance,
+    required this.creditLimit,
+    required this.availableLimit,
     required this.currency,
     required this.active,
   });
+
+  bool get isLiability => nature == 'LIABILITY';
+  double get signedBalance => isLiability ? -balance : balance;
 
   factory AccountItem.fromJson(Map<String, dynamic> json) => AccountItem(
         id: (json['id'] as num).toInt(),
         name: json['name'] as String,
         type: json['type'] as String,
+        nature: json['nature'] as String? ?? 'ASSET',
         institution: json['institution'] as String?,
         balance: (json['balance'] as num).toDouble(),
+        creditLimit: (json['creditLimit'] as num?)?.toDouble(),
+        availableLimit: (json['availableLimit'] as num?)?.toDouble(),
         currency: json['currency'] as String? ?? 'TRY',
         active: json['active'] as bool? ?? true,
       );
@@ -112,7 +124,9 @@ class AccountRepository {
   Future<void> create({
     required String name,
     required String type,
+    required String nature,
     required double balance,
+    double? creditLimit,
     String? institution,
   }) async {
     final response = await _client.post(
@@ -121,8 +135,10 @@ class AccountRepository {
       body: jsonEncode({
         'name': name,
         'type': type,
+        'nature': nature,
         'institution': institution?.trim().isEmpty == true ? null : institution?.trim(),
         'balance': balance,
+        'creditLimit': creditLimit,
         'currency': 'TRY',
         'active': true,
       }),
