@@ -90,15 +90,33 @@ class _AccountsPageState extends State<AccountsPage> {
           }
           if (snapshot.hasError) return Center(child: Text(snapshot.error.toString()));
           final items = snapshot.data ?? const [];
-          final total = items.where((e) => e.active && e.currency == 'TRY').fold<double>(0, (s, e) => s + e.balance);
+          final activeTry = items.where((e) => e.active && e.currency == 'TRY');
+          final assets = activeTry.where((e) => !e.isLiability).fold<double>(0, (s, e) => s + e.balance);
+          final liabilities = activeTry.where((e) => e.isLiability).fold<double>(0, (s, e) => s + e.balance);
+          final netWorth = assets - liabilities;
+
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
               Card(
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet_outlined)),
-                  title: const Text('Toplam kullanılabilir bakiye'),
-                  trailing: Text(_money(total), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Net varlık', style: TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 6),
+                      Text(_money(netWorth), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(child: _SummaryMetric(label: 'Varlıklar', value: _money(assets))),
+                          const SizedBox(width: 12),
+                          Expanded(child: _SummaryMetric(label: 'Borçlar', value: _money(liabilities), negative: true)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -129,8 +147,14 @@ class _AccountsPageState extends State<AccountsPage> {
                       child: ListTile(
                         leading: CircleAvatar(child: Icon(_icon(account.type))),
                         title: Text(account.name),
-                        subtitle: Text(account.institution ?? _label(account.type)),
-                        trailing: Text(_money(account.balance), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(_subtitle(account)),
+                        trailing: Text(
+                          _money(account.signedBalance),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: account.isLiability ? Theme.of(context).colorScheme.error : null,
+                          ),
+                        ),
                         onTap: () => _editBalance(account),
                         onLongPress: () => _delete(account),
                       ),
@@ -148,21 +172,30 @@ class _AccountsPageState extends State<AccountsPage> {
     final changed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${account.name} bakiyesini düzelt'),
+        title: Text(account.isLiability ? '${account.name} borcunu düzelt' : '${account.name} bakiyesini düzelt'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Mevcut bakiye: ${_money(account.balance)}',
+              account.isLiability
+                  ? 'Mevcut borç: ${_money(account.balance)}'
+                  : 'Mevcut bakiye: ${_money(account.balance)}',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: balanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-              decoration: const InputDecoration(labelText: 'Doğru bakiye', prefixText: '₺ '),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: account.isLiability ? 'Doğru borç tutarı' : 'Doğru bakiye',
+                prefixText: '₺ ',
+              ),
             ),
+            if (account.isLiability && account.creditLimit != null) ...[
+              const SizedBox(height: 8),
+              Text('Limit: ${_money(account.creditLimit!)}', style: Theme.of(context).textTheme.bodySmall),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: descriptionController,
@@ -182,6 +215,8 @@ class _AccountsPageState extends State<AccountsPage> {
               final value = double.tryParse(balanceController.text.replaceAll(',', '.'));
               final description = descriptionController.text.trim();
               if (value == null || description.isEmpty || value == account.balance) return;
+              if (account.isLiability && value < 0) return;
+              if (account.creditLimit != null && value > account.creditLimit!) return;
               await _repository.adjustBalance(
                 accountId: account.id,
                 targetBalance: value,
@@ -222,6 +257,12 @@ class _AccountsPageState extends State<AccountsPage> {
     }
   }
 
+  static String _subtitle(AccountItem account) {
+    final base = account.institution ?? _label(account.type);
+    if (!account.isLiability || account.creditLimit == null) return base;
+    return '$base • Kullanılabilir ${_money(account.availableLimit ?? 0)} / ${_money(account.creditLimit!)}';
+  }
+
   static String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
 
   static IconData _icon(String type) => switch (type) {
@@ -229,6 +270,7 @@ class _AccountsPageState extends State<AccountsPage> {
         'CASH' => Icons.payments_outlined,
         'E_WALLET' => Icons.wallet_outlined,
         'SAVINGS' => Icons.savings_outlined,
+        'OVERDRAFT' => Icons.credit_score_outlined,
         _ => Icons.account_balance_wallet_outlined,
       };
 
@@ -237,8 +279,42 @@ class _AccountsPageState extends State<AccountsPage> {
         'CASH' => 'Nakit',
         'E_WALLET' => 'E-cüzdan',
         'SAVINGS' => 'Birikim',
+        'OVERDRAFT' => 'Ek hesap / KMH',
         _ => type,
       };
+}
+
+class _SummaryMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool negative;
+
+  const _SummaryMetric({required this.label, required this.value, this.negative = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 4),
+            FittedBox(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: negative ? Theme.of(context).colorScheme.error : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _TransferSheet extends StatefulWidget {
@@ -291,7 +367,7 @@ class _TransferSheetState extends State<_TransferSheet> {
   @override
   Widget build(BuildContext context) {
     final items = widget.accounts
-        .map((a) => DropdownMenuItem<int>(value: a.id, child: Text('${a.name} (${_AccountsPageState._money(a.balance)})')))
+        .map((a) => DropdownMenuItem<int>(value: a.id, child: Text('${a.name} (${_AccountsPageState._money(a.signedBalance)})')))
         .toList();
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
@@ -320,6 +396,11 @@ class _TransferSheetState extends State<_TransferSheet> {
           ),
           const SizedBox(height: 12),
           TextField(controller: _description, decoration: const InputDecoration(labelText: 'Açıklama', border: OutlineInputBorder())),
+          const SizedBox(height: 10),
+          Text(
+            'Ek hesaptan transfer borcu artırır; ek hesaba transfer borcu azaltır.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -346,24 +427,38 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
   final _repository = AccountRepository();
   final _name = TextEditingController();
   final _institution = TextEditingController();
-  final _balance = TextEditingController();
+  final _balance = TextEditingController(text: '0');
+  final _creditLimit = TextEditingController();
   String _type = 'BANK_ACCOUNT';
   bool _saving = false;
+
+  bool get _isOverdraft => _type == 'OVERDRAFT';
 
   @override
   void dispose() {
     _name.dispose();
     _institution.dispose();
     _balance.dispose();
+    _creditLimit.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final balance = double.tryParse(_balance.text.replaceAll(',', '.'));
+    final creditLimit = _isOverdraft ? double.tryParse(_creditLimit.text.replaceAll(',', '.')) : null;
     if (_name.text.trim().isEmpty || balance == null) return;
+    if (_isOverdraft && (balance < 0 || creditLimit == null || creditLimit <= 0 || balance > creditLimit)) return;
+
     setState(() => _saving = true);
     try {
-      await _repository.create(name: _name.text.trim(), type: _type, balance: balance, institution: _institution.text);
+      await _repository.create(
+        name: _name.text.trim(),
+        type: _type,
+        nature: _isOverdraft ? 'LIABILITY' : 'ASSET',
+        balance: balance,
+        creditLimit: creditLimit,
+        institution: _institution.text,
+      );
       if (mounted) Navigator.pop(context, true);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -388,13 +483,31 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
               DropdownMenuItem(value: 'CASH', child: Text('Nakit')),
               DropdownMenuItem(value: 'E_WALLET', child: Text('E-cüzdan')),
               DropdownMenuItem(value: 'SAVINGS', child: Text('Birikim')),
+              DropdownMenuItem(value: 'OVERDRAFT', child: Text('Ek hesap / KMH (Artı Para)')),
             ],
             onChanged: (v) => setState(() => _type = v ?? 'BANK_ACCOUNT'),
           ),
           const SizedBox(height: 12),
           TextField(controller: _institution, decoration: const InputDecoration(labelText: 'Banka / kurum (opsiyonel)', border: OutlineInputBorder())),
+          if (_isOverdraft) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _creditLimit,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Ek hesap limiti', prefixText: '₺ ', border: OutlineInputBorder()),
+            ),
+          ],
           const SizedBox(height: 12),
-          TextField(controller: _balance, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Mevcut bakiye', prefixText: '₺ ', border: OutlineInputBorder())),
+          TextField(
+            controller: _balance,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: _isOverdraft ? 'Şu an kullanılan borç' : 'Mevcut bakiye',
+              prefixText: '₺ ',
+              border: const OutlineInputBorder(),
+              helperText: _isOverdraft ? 'Borcu pozitif tutar olarak gir; ekranda eksi gösterilecek.' : null,
+            ),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
