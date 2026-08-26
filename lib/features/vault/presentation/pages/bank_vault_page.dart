@@ -139,6 +139,19 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
               TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')),
               const SizedBox(height: 12),
               TextField(controller: note, decoration: const InputDecoration(labelText: 'Not (opsiyonel)')),
+              const SizedBox(height: 14),
+              const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Bu kayıt yalnızca bu cihazda saklanır. Telefon silinir, değiştirilir veya PayTrack kaldırılırsa kasa verileri geri getirilemeyebilir.',
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -231,6 +244,24 @@ class _BankVaultPageState extends State<BankVaultPage> with WidgetsBindingObserv
                   const Expanded(
                     child: Text(
                       'Şifreleriniz yalnızca bu telefonda, cihazın güvenli depolama alanında saklanır. PayTrack sunucularına gönderilmez ve hesabınızla senkronize edilmez.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Önemli: Bu cihaz silinir, değiştirilir veya kasa verileri kaldırılırsa şifreler PayTrack hesabınızdan geri getirilemez. Banka Kasası buluta yedeklenmez.',
                     ),
                   ),
                 ],
