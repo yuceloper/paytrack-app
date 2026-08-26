@@ -94,9 +94,9 @@ class PaymentRepository {
     _ensureSuccess(response, 'Ödeme güncellenemedi');
   }
 
-  Future<void> markPaid(int id, {int? accountId}) async {
+  Future<void> markPaid(int id, {required int accountId}) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/payments/$id/paid').replace(
-      queryParameters: accountId == null ? null : {'accountId': accountId.toString()},
+      queryParameters: {'accountId': accountId.toString()},
     );
     final response = await _client.patch(uri);
     _ensureSuccess(response, 'Ödeme tamamlanamadı');
