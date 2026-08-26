@@ -33,7 +33,21 @@ class AuthSessionService {
         newRefreshToken: refreshToken,
         isGuest: guest,
       );
-      return;
+
+      final valid = await _validateStoredSession().timeout(
+        _bootstrapTimeout,
+        onTimeout: () => throw TimeoutException(
+          'PayTrack oturumu doğrulanırken sunucuya ${_bootstrapTimeout.inSeconds} saniye içinde ulaşılamadı.',
+        ),
+      );
+      if (valid) return;
+
+      try {
+        await refreshSession();
+        return;
+      } on AuthSessionExpiredException {
+        await clearLocalSession();
+      }
     }
 
     await _createGuestSession().timeout(
@@ -42,6 +56,25 @@ class AuthSessionService {
         'PayTrack sunucusuna ${_bootstrapTimeout.inSeconds} saniye içinde ulaşılamadı.',
       ),
     );
+  }
+
+  static Future<bool> _validateStoredSession() async {
+    final accessToken = SessionStore.accessToken;
+    if (accessToken == null || accessToken.isEmpty) return false;
+
+    final response = await http.get(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/me'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return true;
+    }
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      return false;
+    }
+
+    throw Exception('Oturum doğrulanamadı (${response.statusCode})');
   }
 
   static Future<void> refreshSession() {
