@@ -115,6 +115,8 @@ class _DashboardContent extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('Gelir ve ödemelerini tek yerden takip et.'),
           const SizedBox(height: 24),
+          _NetWorthCard(summary: summary),
+          const SizedBox(height: 20),
           _SummaryCard(
             title: 'Bu ay ödenecek',
             value: _currency(summary.dueThisMonth),
@@ -218,6 +220,123 @@ class _DashboardContent extends StatelessWidget {
       symbol: '₺',
       decimalDigits: 2,
     ).format(value);
+  }
+}
+
+class _NetWorthCard extends StatelessWidget {
+  final dynamic summary;
+
+  const _NetWorthCard({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final netPositive = summary.netWorth >= 0;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Net varlık', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+                Icon(netPositive ? Icons.trending_up : Icons.trending_down,
+                    color: netPositive ? scheme.primary : scheme.error),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _DashboardContent._currency(summary.netWorth),
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                color: netPositive ? null : scheme.error,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _NetMetric(label: 'Varlıklar', value: summary.totalAssets, negative: false),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _NetMetric(label: 'Toplam borç', value: summary.totalLiabilities, negative: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _DebtLine(label: 'Ek hesap / KMH', amount: summary.overdraftDebt),
+            const SizedBox(height: 8),
+            _DebtLine(label: 'Kredi kartları', amount: summary.totalCreditCardDebt),
+            const SizedBox(height: 8),
+            _DebtLine(label: 'Krediler', amount: summary.totalLoanDebt),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NetMetric extends StatelessWidget {
+  final String label;
+  final double value;
+  final bool negative;
+
+  const _NetMetric({required this.label, required this.value, required this.negative});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 4),
+          FittedBox(
+            child: Text(
+              _DashboardContent._currency(negative ? -value : value),
+              style: TextStyle(fontWeight: FontWeight.w800, color: negative ? scheme.error : null),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtLine extends StatelessWidget {
+  final String label;
+  final double amount;
+
+  const _DebtLine({required this.label, required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(label)),
+        Text(
+          _DashboardContent._currency(amount == 0 ? 0 : -amount),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: amount > 0 ? Theme.of(context).colorScheme.error : null,
+          ),
+        ),
+      ],
+    );
   }
 }
 
