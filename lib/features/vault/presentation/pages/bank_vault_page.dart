@@ -42,9 +42,6 @@ class _BankVaultPageState extends State<BankVaultPage>
     final shouldLock = state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden;
-
-    // iOS may report inactive while the native Face ID sheet is on screen.
-    // Do not lock the vault in the middle of our own authentication flow.
     if (shouldLock && !_authenticating && !_sensitiveAuthInProgress) {
       if (mounted) setState(() => _unlocked = false);
     }
@@ -97,7 +94,6 @@ class _BankVaultPageState extends State<BankVaultPage>
   Future<bool> _confirmSensitiveAction(String reason) async {
     if (_sensitiveAuthInProgress) return false;
     if (mounted) setState(() => _sensitiveAuthInProgress = true);
-
     try {
       return await _auth.authenticate(
         localizedReason: reason,
@@ -113,29 +109,41 @@ class _BankVaultPageState extends State<BankVaultPage>
     }
   }
 
-  Future<void> _copyPassword(BankVaultEntry entry) async {
-    final ok = await _confirmSensitiveAction(
-      '${entry.bankName} şifresini kopyalamak için doğrulayın.',
-    );
+  Future<void> _copySensitive({
+    required String value,
+    required String reason,
+    required String successMessage,
+  }) async {
+    if (value.isEmpty) return;
+    final ok = await _confirmSensitiveAction(reason);
     if (!ok) return;
 
-    await Clipboard.setData(ClipboardData(text: entry.password));
+    await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Şifre kopyalandı. 30 saniye sonra panodan temizlenecek.',
-        ),
-      ),
+      SnackBar(content: Text('$successMessage 30 saniye sonra panodan temizlenecek.')),
     );
 
     Timer(const Duration(seconds: 30), () async {
       final current = await Clipboard.getData('text/plain');
-      if (current?.text == entry.password) {
+      if (current?.text == value) {
         await Clipboard.setData(const ClipboardData(text: ''));
       }
     });
   }
+
+  Future<void> _copyPassword(BankVaultEntry entry) => _copySensitive(
+        value: entry.password,
+        reason: '${entry.bankName} şifresini kopyalamak için doğrulayın.',
+        successMessage: 'Şifre kopyalandı.',
+      );
+
+  Future<void> _copyUsername(BankVaultEntry entry) => _copySensitive(
+        value: entry.username,
+        reason:
+            '${entry.bankName} müşteri / kullanıcı numarasını kopyalamak için doğrulayın.',
+        successMessage: 'Müşteri / kullanıcı numarası kopyalandı.',
+      );
 
   Future<void> _showPassword(BankVaultEntry entry) async {
     final ok = await _confirmSensitiveAction(
@@ -157,6 +165,64 @@ class _BankVaultPageState extends State<BankVaultPage>
             child: const Text('Kapat'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showDetails(BankVaultEntry entry) async {
+    final ok = await _confirmSensitiveAction(
+      '${entry.bankName} kasa detaylarını görüntülemek için doğrulayın.',
+    );
+    if (!ok || !mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.bankName,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              _DetailRow(
+                label: 'Müşteri / kullanıcı no',
+                value: entry.username.isEmpty ? 'Eklenmedi' : entry.username,
+                copyable: entry.username.isNotEmpty,
+                onCopy: () {
+                  Navigator.pop(context);
+                  _copyUsername(entry);
+                },
+              ),
+              const SizedBox(height: 14),
+              _DetailRow(
+                label: 'Şifre',
+                value: '••••••••',
+                copyable: true,
+                onCopy: () {
+                  Navigator.pop(context);
+                  _copyPassword(entry);
+                },
+              ),
+              const SizedBox(height: 14),
+              Text('Not', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 5),
+              Text(entry.note.isEmpty ? 'Not eklenmedi' : entry.note),
+              const SizedBox(height: 18),
+              Text(
+                _passwordAge(entry),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -196,7 +262,28 @@ class _BankVaultPageState extends State<BankVaultPage>
     final ok = await _confirmSensitiveAction(
       '${entry.bankName} kaydını silmek için doğrulayın.',
     );
-    if (!ok) return;
+    if (!ok || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kasa kaydı silinsin mi?'),
+        content: Text(
+          '${entry.bankName} için saklanan bilgiler bu cihazdan kalıcı olarak silinecek.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
 
     final updated = _entries.where((e) => e.id != entry.id).toList();
     await _service.save(updated);
@@ -326,6 +413,7 @@ class _BankVaultPageState extends State<BankVaultPage>
             ..._entries.map(
               (entry) => Card(
                 child: ListTile(
+                  onTap: () => _showDetails(entry),
                   leading: CircleAvatar(
                     child: Icon(
                       _passwordIsOld(entry)
@@ -358,25 +446,36 @@ class _BankVaultPageState extends State<BankVaultPage>
                   ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) {
+                      if (value == 'details') _showDetails(entry);
                       if (value == 'show') _showPassword(entry);
-                      if (value == 'copy') _copyPassword(entry);
+                      if (value == 'copyUser') _copyUsername(entry);
+                      if (value == 'copyPassword') _copyPassword(entry);
                       if (value == 'edit') _editEntry(entry);
                       if (value == 'delete') _delete(entry);
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: Text('Detayları göster'),
+                      ),
+                      if (entry.username.isNotEmpty)
+                        const PopupMenuItem(
+                          value: 'copyUser',
+                          child: Text('Müşteri / kullanıcı no kopyala'),
+                        ),
+                      const PopupMenuItem(
                         value: 'show',
                         child: Text('Şifreyi göster'),
                       ),
-                      PopupMenuItem(
-                        value: 'copy',
+                      const PopupMenuItem(
+                        value: 'copyPassword',
                         child: Text('Şifreyi kopyala'),
                       ),
-                      PopupMenuItem(
+                      const PopupMenuItem(
                         value: 'edit',
                         child: Text('Düzenle / şifreyi güncelle'),
                       ),
-                      PopupMenuItem(value: 'delete', child: Text('Sil')),
+                      const PopupMenuItem(value: 'delete', child: Text('Sil')),
                     ],
                   ),
                 ),
@@ -385,6 +484,45 @@ class _BankVaultPageState extends State<BankVaultPage>
           const SizedBox(height: 90),
         ],
       ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool copyable;
+  final VoidCallback onCopy;
+
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    required this.copyable,
+    required this.onCopy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 5),
+              SelectableText(value),
+            ],
+          ),
+        ),
+        if (copyable)
+          IconButton(
+            tooltip: 'Kopyala',
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy_outlined),
+          ),
+      ],
     );
   }
 }
