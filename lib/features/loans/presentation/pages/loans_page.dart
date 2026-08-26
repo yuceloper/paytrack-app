@@ -141,14 +141,13 @@ class _LoansPageState extends State<LoansPage> {
         installmentAmount: created.installmentAmount,
         paymentDay: created.paymentDay,
         totalInstallments: created.totalInstallments,
-        remainingInstallments: created.remainingInstallments,
+        paidInstallments: created.paidInstallments,
         startDate: created.startDate,
-        endDate: created.endDate,
       );
       if (!mounted) return;
       setState(_reload);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kredi ve kalan taksitler eklendi')),
+        const SnackBar(content: Text('Kredi planı ve kalan taksitler eklendi')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -167,8 +166,10 @@ class _Summary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = loans.where((e) => e.active).toList();
-    final remaining = active.fold<double>(0, (sum, e) => sum + e.remainingPayable);
-    final monthly = active.fold<double>(0, (sum, e) => sum + e.installmentAmount);
+    final remaining =
+        active.fold<double>(0, (sum, e) => sum + e.remainingPayable);
+    final monthly =
+        active.fold<double>(0, (sum, e) => sum + e.installmentAmount);
 
     return Card(
       child: Padding(
@@ -176,13 +177,18 @@ class _Summary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Kredi özeti', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Kredi özeti',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _Metric(label: 'Kalan ödeme', value: _currency(remaining))),
+                Expanded(
+                    child: _Metric(
+                        label: 'Kalan ödeme', value: _currency(remaining))),
                 const SizedBox(width: 12),
-                Expanded(child: _Metric(label: 'Aylık taksit', value: _currency(monthly))),
+                Expanded(
+                    child: _Metric(
+                        label: 'Aylık taksit', value: _currency(monthly))),
               ],
             ),
             const SizedBox(height: 10),
@@ -214,7 +220,8 @@ class _Metric extends StatelessWidget {
           Text(label, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 5),
           FittedBox(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: Text(value,
+                style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
         ],
       ),
@@ -231,7 +238,12 @@ class _LoanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paid = loan.paidInstallments;
-    final end = loan.endDate == null ? null : DateFormat('d MMMM yyyy', 'tr_TR').format(loan.endDate!);
+    final start = loan.startDate == null
+        ? null
+        : DateFormat('d MMMM yyyy', 'tr_TR').format(loan.startDate!);
+    final end = loan.endDate == null
+        ? null
+        : DateFormat('d MMMM yyyy', 'tr_TR').format(loan.endDate!);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -243,14 +255,18 @@ class _LoanCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  child: Icon(loan.active ? Icons.account_balance : Icons.check_circle_outline),
+                  child: Icon(loan.active
+                      ? Icons.account_balance
+                      : Icons.check_circle_outline),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(loan.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      Text(loan.name,
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w700)),
                       Text(loan.institutionName),
                     ],
                   ),
@@ -280,14 +296,21 @@ class _LoanCard extends StatelessWidget {
             const SizedBox(height: 8),
             LinearProgressIndicator(value: loan.progress.clamp(0, 1)),
             const SizedBox(height: 16),
-            _InfoLine(label: 'Aylık taksit', value: _currency(loan.installmentAmount)),
+            _InfoLine(
+                label: 'Aylık taksit', value: _currency(loan.installmentAmount)),
             const SizedBox(height: 7),
-            _InfoLine(label: 'Kalan ödeme', value: _currency(loan.remainingPayable)),
+            _InfoLine(
+                label: 'Kalan ödeme', value: _currency(loan.remainingPayable)),
             const SizedBox(height: 7),
-            _InfoLine(label: 'Ödeme günü', value: 'Her ayın ${loan.paymentDay}. günü'),
+            _InfoLine(
+                label: 'Ödeme günü', value: 'Her ayın ${loan.paymentDay}. günü'),
+            if (start != null) ...[
+              const SizedBox(height: 7),
+              _InfoLine(label: 'Başlangıç', value: start),
+            ],
             if (end != null) ...[
               const SizedBox(height: 7),
-              _InfoLine(label: 'Bitiş tarihi', value: end),
+              _InfoLine(label: 'Hesaplanan bitiş', value: end),
             ],
             if (!loan.active) ...[
               const SizedBox(height: 12),
@@ -295,7 +318,8 @@ class _LoanCard extends StatelessWidget {
                 children: [
                   Icon(Icons.check_circle, size: 18),
                   SizedBox(width: 7),
-                  Text('Kredi tamamlandı', style: TextStyle(fontWeight: FontWeight.w700)),
+                  Text('Kredi tamamlandı',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ],
               ),
             ],
@@ -329,9 +353,8 @@ class _LoanDraft {
   final double installmentAmount;
   final int paymentDay;
   final int totalInstallments;
-  final int remainingInstallments;
-  final DateTime? startDate;
-  final DateTime? endDate;
+  final int paidInstallments;
+  final DateTime startDate;
 
   const _LoanDraft({
     required this.name,
@@ -339,9 +362,8 @@ class _LoanDraft {
     required this.installmentAmount,
     required this.paymentDay,
     required this.totalInstallments,
-    required this.remainingInstallments,
+    required this.paidInstallments,
     required this.startDate,
-    required this.endDate,
   });
 }
 
@@ -358,20 +380,32 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
   final _installment = TextEditingController();
   final _paymentDay = TextEditingController();
   final _total = TextEditingController();
-  final _remaining = TextEditingController();
+  final _paid = TextEditingController(text: '0');
   DateTime? _startDate;
-  DateTime? _endDate;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _paymentDay.addListener(_refreshPreview);
+    _total.addListener(_refreshPreview);
+  }
+
+  @override
   void dispose() {
+    _paymentDay.removeListener(_refreshPreview);
+    _total.removeListener(_refreshPreview);
     _name.dispose();
     _institution.dispose();
     _installment.dispose();
     _paymentDay.dispose();
     _total.dispose();
-    _remaining.dispose();
+    _paid.dispose();
     super.dispose();
+  }
+
+  void _refreshPreview() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _pickStart() async {
@@ -384,22 +418,34 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
     if (date != null) setState(() => _startDate = date);
   }
 
-  Future<void> _pickEnd() async {
-    final initial = _endDate ?? _startDate ?? DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      initialDate: initial,
+  DateTime? get _calculatedEndDate {
+    final start = _startDate;
+    final day = int.tryParse(_paymentDay.text);
+    final total = int.tryParse(_total.text);
+    if (start == null || day == null || day < 1 || day > 31 || total == null || total <= 0) {
+      return null;
+    }
+
+    final first = _paymentDate(start, day);
+    final firstDue = first.isBefore(start)
+        ? _paymentDate(DateTime(start.year, start.month + 1, 1), day)
+        : first;
+    return _paymentDate(
+      DateTime(firstDue.year, firstDue.month + total - 1, 1),
+      day,
     );
-    if (date != null) setState(() => _endDate = date);
+  }
+
+  DateTime _paymentDate(DateTime date, int paymentDay) {
+    final lastDay = DateTime(date.year, date.month + 1, 0).day;
+    return DateTime(date.year, date.month, paymentDay.clamp(1, lastDay));
   }
 
   void _save() {
     final amount = double.tryParse(_installment.text.replaceAll(',', '.'));
     final day = int.tryParse(_paymentDay.text);
     final total = int.tryParse(_total.text);
-    final remaining = int.tryParse(_remaining.text);
+    final paid = _paid.text.trim().isEmpty ? 0 : int.tryParse(_paid.text);
 
     if (_name.text.trim().isEmpty ||
         _institution.text.trim().isEmpty ||
@@ -410,15 +456,12 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
         day > 31 ||
         total == null ||
         total <= 0 ||
-        remaining == null ||
-        remaining < 0 ||
-        remaining > total) {
-      setState(() => _error = 'Alanları kontrol edin. Kalan taksit toplam taksitten büyük olamaz.');
-      return;
-    }
-
-    if (_startDate != null && _endDate != null && _endDate!.isBefore(_startDate!)) {
-      setState(() => _error = 'Bitiş tarihi başlangıç tarihinden önce olamaz.');
+        paid == null ||
+        paid < 0 ||
+        paid > total ||
+        _startDate == null) {
+      setState(() => _error =
+          'Alanları kontrol edin. Başlangıç tarihi zorunlu; ödenen taksit toplam taksitten büyük olamaz.');
       return;
     }
 
@@ -430,9 +473,8 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
         installmentAmount: amount,
         paymentDay: day,
         totalInstallments: total,
-        remainingInstallments: remaining,
-        startDate: _startDate,
-        endDate: _endDate,
+        paidInstallments: paid,
+        startDate: _startDate!,
       ),
     );
   }
@@ -440,24 +482,39 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('d MMM yyyy', 'tr_TR');
+    final calculatedEnd = _calculatedEndDate;
+
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Kredi ekle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const Text('Kredi ekle',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'Başlangıç ve taksit bilgilerini gir; kalan taksit ve bitiş tarihini PayTrack hesaplasın.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 16),
-              TextField(controller: _name, decoration: const InputDecoration(labelText: 'Kredi adı')),
+              TextField(
+                  controller: _name,
+                  decoration: const InputDecoration(labelText: 'Kredi adı')),
               const SizedBox(height: 12),
-              TextField(controller: _institution, decoration: const InputDecoration(labelText: 'Banka / kurum')),
+              TextField(
+                  controller: _institution,
+                  decoration: const InputDecoration(labelText: 'Banka / kurum')),
               const SizedBox(height: 12),
               TextField(
                 controller: _installment,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Aylık taksit tutarı'),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration:
+                    const InputDecoration(labelText: 'Aylık taksit tutarı'),
               ),
               const SizedBox(height: 12),
               Row(
@@ -466,7 +523,8 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
                     child: TextField(
                       controller: _paymentDay,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Ödeme günü'),
+                      decoration:
+                          const InputDecoration(labelText: 'Ödeme günü'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -474,53 +532,66 @@ class _AddLoanSheetState extends State<_AddLoanSheet> {
                     child: TextField(
                       controller: _total,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Toplam taksit'),
+                      decoration:
+                          const InputDecoration(labelText: 'Toplam taksit'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _remaining,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Kalan taksit',
-                  helperText: 'Örn. 12 taksitin 3’ü ödendiyse 9',
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _pickStart,
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(_startDate == null
+                      ? 'Başlangıç tarihini seç'
+                      : 'Başlangıç: ${dateFormat.format(_startDate!)}'),
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickStart,
-                      icon: const Icon(Icons.event_outlined),
-                      label: Text(_startDate == null ? 'Başlangıç' : dateFormat.format(_startDate!)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickEnd,
-                      icon: const Icon(Icons.event_available_outlined),
-                      label: Text(_endDate == null ? 'Bitiş' : dateFormat.format(_endDate!)),
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: _paid,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Bugüne kadar ödenen taksit (opsiyonel)',
+                  helperText:
+                      'Yeni krediyse 0 bırak. Eski krediyi ekliyorsan örn. 3 yazabilirsin.',
+                ),
               ),
+              if (calculatedEnd != null) ...[
+                const SizedBox(height: 14),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: const Icon(Icons.auto_awesome_outlined),
+                    title: const Text('Planlanan bitiş tarihi'),
+                    subtitle: const Text(
+                        'Başlangıç, ödeme günü ve toplam taksite göre otomatik hesaplandı.'),
+                    trailing: Text(
+                      dateFormat.format(calculatedEnd),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(_error!,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error)),
               ],
               const SizedBox(height: 18),
               const Text(
-                'Kredi kaydedildiğinde kalan taksitler ödeme takvimine otomatik eklenir.',
+                'Kalan taksit = toplam taksit − ödenen taksit. Ödenmemiş taksitler kendi gerçek vadeleriyle ödeme takvimine otomatik eklenir.',
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: _save, child: const Text('Krediyi kaydet')),
+                child: FilledButton(
+                    onPressed: _save,
+                    child: const Text('Krediyi ve planı kaydet')),
               ),
             ],
           ),
@@ -546,11 +617,15 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 48),
             const SizedBox(height: 14),
-            const Text('Krediler yüklenemedi', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text('Krediler yüklenemedi',
+                style: TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 14),
-            FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Tekrar dene')),
+            FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tekrar dene')),
           ],
         ),
       ),
