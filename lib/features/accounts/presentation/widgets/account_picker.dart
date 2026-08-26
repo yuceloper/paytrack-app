@@ -34,12 +34,21 @@ Future<AccountItem?> showAccountPicker(BuildContext context, {required String ti
             Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             ...accounts.map((account) => ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet_outlined)),
+                  leading: CircleAvatar(
+                    child: Icon(account.isLiability ? Icons.credit_score_outlined : Icons.account_balance_wallet_outlined),
+                  ),
                   title: Text(account.name),
-                  subtitle: Text(account.institution ?? account.type),
+                  subtitle: Text(
+                    account.isLiability && account.availableLimit != null
+                        ? '${account.institution ?? 'Ek hesap'} • Kullanılabilir ${_money(account.availableLimit!)}'
+                        : account.institution ?? account.type,
+                  ),
                   trailing: Text(
-                    NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(account.balance),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    _money(account.signedBalance),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: account.isLiability ? Theme.of(context).colorScheme.error : null,
+                    ),
                   ),
                   onTap: () => Navigator.pop(context, account),
                 )),
@@ -49,3 +58,5 @@ Future<AccountItem?> showAccountPicker(BuildContext context, {required String ti
     ),
   );
 }
+
+String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
