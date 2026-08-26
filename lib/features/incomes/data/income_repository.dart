@@ -153,8 +153,10 @@ class IncomeRepository {
     _ensureSuccess(await _client.delete(uri));
   }
 
-  Future<void> markReceived(int id, {int? accountId}) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received').replace(queryParameters: accountId == null ? null : {'accountId': accountId.toString()});
+  Future<void> markReceived(int id, {required int accountId}) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/incomes/occurrences/$id/received').replace(
+      queryParameters: {'accountId': accountId.toString()},
+    );
     _ensureSuccess(await _client.patch(uri));
   }
 
