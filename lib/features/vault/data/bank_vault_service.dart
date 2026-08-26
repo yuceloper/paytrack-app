@@ -10,6 +10,7 @@ class BankVaultEntry {
   final String note;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool favorite;
 
   const BankVaultEntry({
     required this.id,
@@ -19,6 +20,7 @@ class BankVaultEntry {
     required this.note,
     required this.createdAt,
     required this.updatedAt,
+    this.favorite = false,
   });
 
   BankVaultEntry copyWith({
@@ -27,6 +29,7 @@ class BankVaultEntry {
     String? password,
     String? note,
     DateTime? updatedAt,
+    bool? favorite,
   }) =>
       BankVaultEntry(
         id: id,
@@ -36,6 +39,7 @@ class BankVaultEntry {
         note: note ?? this.note,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        favorite: favorite ?? this.favorite,
       );
 
   factory BankVaultEntry.fromJson(Map<String, dynamic> json) {
@@ -48,6 +52,7 @@ class BankVaultEntry {
       note: json['note'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? fallback,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? fallback,
+      favorite: json['favorite'] as bool? ?? false,
     );
   }
 
@@ -59,6 +64,7 @@ class BankVaultEntry {
         'note': note,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'favorite': favorite,
       };
 }
 
