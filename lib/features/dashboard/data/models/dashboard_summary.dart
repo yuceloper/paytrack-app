@@ -4,7 +4,12 @@ class DashboardSummary {
   final int upcomingPaymentCount;
   final double overdueAmount;
   final int overduePaymentCount;
+  final double totalAssets;
+  final double overdraftDebt;
   final double totalCreditCardDebt;
+  final double totalLoanDebt;
+  final double totalLiabilities;
+  final double netWorth;
   final double monthlySubscriptionCost;
   final double yearlySubscriptionCost;
   final double expectedIncomeThisMonth;
@@ -21,7 +26,12 @@ class DashboardSummary {
     required this.upcomingPaymentCount,
     required this.overdueAmount,
     required this.overduePaymentCount,
+    required this.totalAssets,
+    required this.overdraftDebt,
     required this.totalCreditCardDebt,
+    required this.totalLoanDebt,
+    required this.totalLiabilities,
+    required this.netWorth,
     required this.monthlySubscriptionCost,
     required this.yearlySubscriptionCost,
     required this.expectedIncomeThisMonth,
@@ -42,7 +52,12 @@ class DashboardSummary {
       upcomingPaymentCount: (json['upcomingPaymentCount'] as num?)?.toInt() ?? 0,
       overdueAmount: number(json['overdueAmount']),
       overduePaymentCount: (json['overduePaymentCount'] as num?)?.toInt() ?? 0,
+      totalAssets: number(json['totalAssets']),
+      overdraftDebt: number(json['overdraftDebt']),
       totalCreditCardDebt: number(json['totalCreditCardDebt']),
+      totalLoanDebt: number(json['totalLoanDebt']),
+      totalLiabilities: number(json['totalLiabilities']),
+      netWorth: number(json['netWorth']),
       monthlySubscriptionCost: number(json['monthlySubscriptionCost']),
       yearlySubscriptionCost: number(json['yearlySubscriptionCost']),
       expectedIncomeThisMonth: number(json['expectedIncomeThisMonth']),
