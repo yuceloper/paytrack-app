@@ -4,6 +4,7 @@ import '../../../../core/auth/account_profile_service.dart';
 import '../../../../core/auth/auth_session_service.dart';
 import '../../../../core/auth/google_link_service.dart';
 import '../../../../core/auth/session_store.dart';
+import '../../../vault/presentation/pages/bank_vault_page.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -98,12 +99,24 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
           const SizedBox(height: 14),
           Card(
             child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.lock_outline)),
+              title: const Text('Banka Kasası'),
+              subtitle: const Text('Banka şifrelerini Face ID ile koruyup yalnızca bu telefonda sakla.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BankVaultPage()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: ListTile(
               leading: Icon(linked ? Icons.sync_outlined : Icons.info_outline),
               title: Text(linked ? 'Yeni telefonda da devam et' : 'Mevcut verilerin kaybolmaz'),
               subtitle: Text(
                 linked
-                    ? 'Yeni bir cihazda PayTrack’i kurup aynı Google hesabını bağladığında eski verilerin geri gelir. Bağlamadan önce yeni cihazda eklediğin kayıtlar da hesabınla birleştirilir.'
-                    : 'Google hesabını bağladığında mevcut ödeme, gelir, hesap ve hareketlerin korunur. Bu Google hesabında daha önce PayTrack verisi varsa iki taraftaki kayıtlar aynı hesabında birleştirilir.',
+                    ? 'Yeni bir cihazda PayTrack’i kurup aynı Google hesabını bağladığında eski verilerin geri gelir.'
+                    : 'Google hesabını bağladığında mevcut ödeme, gelir, hesap ve hareketlerin korunur.',
               ),
             ),
           ),
@@ -195,15 +208,11 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         _profile = AccountProfileService.load();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Google hesabın bağlandı. Varsa eski PayTrack verilerin de geri yüklendi.'),
-        ),
+        const SnackBar(content: Text('Google hesabın bağlandı.')),
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _linking = false);
     }
@@ -214,25 +223,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Bu cihazdan çıkış yapılsın mı?'),
-        content: const Text(
-          'Google hesabındaki verilerin silinmez. Bu cihaz çıkıştan sonra yeni bir misafir hesapla devam eder.',
-        ),
+        content: const Text('Google hesabındaki verilerin silinmez. Bu cihaz çıkıştan sonra yeni bir misafir hesapla devam eder.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Çıkış yap'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Çıkış yap')),
         ],
       ),
     );
-
-    if (confirmed == true) {
-      await _logout();
-    }
+    if (confirmed == true) await _logout();
   }
 
   Future<void> _logout() async {
@@ -248,9 +246,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _loggingOut = false);
     }
