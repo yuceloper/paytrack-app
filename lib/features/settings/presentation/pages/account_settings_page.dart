@@ -45,8 +45,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                             const SizedBox(height: 4),
                             Text(
                               linked
-                                  ? 'PayTrack verilerin Google hesabınla ilişkilendirildi.'
-                                  : 'Verilerin bu cihazdaki misafir hesabına bağlı. Google ile bağlayarak hesabını kalıcı hale getirebilirsin.',
+                                  ? 'PayTrack verilerin Google hesabınla ilişkilendirildi ve yeni cihazlarda geri yüklenebilir.'
+                                  : 'Verilerin bu misafir hesabında tutuluyor. Google ile bağlayarak hesabını kalıcı ve cihazlar arası kullanılabilir hale getirebilirsin.',
                             ),
                           ],
                         ),
@@ -82,12 +82,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             ),
           ),
           const SizedBox(height: 14),
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.info_outline),
-              title: Text('Verilerin taşınmaz'),
+              leading: Icon(linked ? Icons.sync_outlined : Icons.info_outline),
+              title: Text(linked ? 'Yeni telefonda da devam et' : 'Mevcut verilerin kaybolmaz'),
               subtitle: Text(
-                'Google hesabını bağladığında mevcut ödeme, gelir, hesap ve hareketlerin aynı PayTrack kullanıcı kaydında kalır.',
+                linked
+                    ? 'Yeni bir cihazda PayTrack’i kurup aynı Google hesabını bağladığında eski verilerin geri gelir. Bağlamadan önce yeni cihazda eklediğin kayıtlar da hesabınla birleştirilir.'
+                    : 'Google hesabını bağladığında mevcut ödeme, gelir, hesap ve hareketlerin korunur. Bu Google hesabında daha önce PayTrack verisi varsa iki taraftaki kayıtlar aynı hesabında birleştirilir.',
               ),
             ),
           ),
@@ -103,7 +105,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google hesabı başarıyla bağlandı')),
+        const SnackBar(
+          content: Text('Google hesabın bağlandı. Varsa eski PayTrack verilerin de geri yüklendi.'),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
