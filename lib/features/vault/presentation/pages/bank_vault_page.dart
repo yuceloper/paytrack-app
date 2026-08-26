@@ -17,11 +17,13 @@ class _BankVaultPageState extends State<BankVaultPage>
     with WidgetsBindingObserver {
   final _auth = LocalAuthentication();
   final _service = BankVaultService();
+  final _search = TextEditingController();
 
   List<BankVaultEntry> _entries = const [];
   bool _unlocked = false;
   bool _authenticating = false;
   bool _sensitiveAuthInProgress = false;
+  String _query = '';
   String? _error;
 
   @override
@@ -34,6 +36,7 @@ class _BankVaultPageState extends State<BankVaultPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _search.dispose();
     super.dispose();
   }
 
@@ -43,7 +46,13 @@ class _BankVaultPageState extends State<BankVaultPage>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden;
     if (shouldLock && !_authenticating && !_sensitiveAuthInProgress) {
-      if (mounted) setState(() => _unlocked = false);
+      if (mounted) {
+        setState(() {
+          _unlocked = false;
+          _query = '';
+          _search.clear();
+        });
+      }
     }
   }
 
@@ -121,7 +130,11 @@ class _BankVaultPageState extends State<BankVaultPage>
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$successMessage 30 saniye sonra panodan temizlenecek.')),
+      SnackBar(
+        content: Text(
+          '$successMessage 30 saniye sonra panodan temizlenecek.',
+        ),
+      ),
     );
 
     Timer(const Duration(seconds: 30), () async {
@@ -303,6 +316,26 @@ class _BankVaultPageState extends State<BankVaultPage>
   bool _passwordIsOld(BankVaultEntry entry) =>
       DateTime.now().difference(entry.updatedAt).inDays >= 180;
 
+  List<BankVaultEntry> get _filteredEntries {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _entries;
+
+    return _entries.where((entry) {
+      return entry.bankName.toLowerCase().contains(query) ||
+          entry.username.toLowerCase().contains(query) ||
+          entry.note.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _lock() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _unlocked = false;
+      _query = '';
+      _search.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_unlocked) {
@@ -341,12 +374,14 @@ class _BankVaultPageState extends State<BankVaultPage>
       );
     }
 
+    final visibleEntries = _filteredEntries;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Banka Kasası'),
         actions: [
           IconButton(
-            onPressed: () => setState(() => _unlocked = false),
+            onPressed: _lock,
             icon: const Icon(Icons.lock_outline),
             tooltip: 'Kilitle',
           ),
@@ -401,6 +436,30 @@ class _BankVaultPageState extends State<BankVaultPage>
               ),
             ),
           ),
+          if (_entries.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            TextField(
+              controller: _search,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                labelText: 'Kasada ara',
+                hintText: 'Banka, müşteri no veya not',
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Aramayı temizle',
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+          ],
           const SizedBox(height: 14),
           if (_entries.isEmpty)
             const Card(
@@ -409,8 +468,23 @@ class _BankVaultPageState extends State<BankVaultPage>
                 child: Text('Kasada henüz kayıt yok.'),
               ),
             )
+          else if (visibleEntries.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_off_outlined),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('“${_query.trim()}” ile eşleşen kasa kaydı yok.'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else
-            ..._entries.map(
+            ...visibleEntries.map(
               (entry) => Card(
                 child: ListTile(
                   onTap: () => _showDetails(entry),
