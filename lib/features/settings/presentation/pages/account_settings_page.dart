@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/auth/account_profile_service.dart';
 import '../../../../core/auth/google_link_service.dart';
 import '../../../../core/auth/session_store.dart';
 
@@ -12,6 +13,13 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _linking = false;
+  late Future<AccountProfile> _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = AccountProfileService.load();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +89,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ),
             ),
           ),
+          if (linked) ...[
+            const SizedBox(height: 14),
+            _buildProfileCard(),
+          ],
           const SizedBox(height: 14),
           Card(
             child: ListTile(
@@ -98,12 +110,65 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
+  Widget _buildProfileCard() {
+    return FutureBuilder<AccountProfile>(
+      future: _profile,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Card(
+            child: ListTile(
+              leading: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              title: Text('Google hesabın yükleniyor...'),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || snapshot.data == null) {
+          return Card(
+            child: ListTile(
+              leading: const Icon(Icons.cloud_off_outlined),
+              title: const Text('Hesap bilgileri alınamadı'),
+              subtitle: const Text('Bağlantını kontrol edip tekrar deneyebilirsin.'),
+              trailing: IconButton(
+                tooltip: 'Tekrar dene',
+                onPressed: () => setState(() => _profile = AccountProfileService.load()),
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          );
+        }
+
+        final profile = snapshot.data!;
+        return Card(
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.account_circle_outlined)),
+            title: Text(profile.name.isEmpty ? 'Google hesabı' : profile.name),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (profile.email.isNotEmpty) Text(profile.email),
+                const SizedBox(height: 2),
+                const Text('Google ile bağlı'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _linkGoogle() async {
     setState(() => _linking = true);
     try {
       await GoogleLinkService.linkCurrentGuest();
       if (!mounted) return;
-      setState(() {});
+      setState(() {
+        _profile = AccountProfileService.load();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Google hesabın bağlandı. Varsa eski PayTrack verilerin de geri yüklendi.'),
