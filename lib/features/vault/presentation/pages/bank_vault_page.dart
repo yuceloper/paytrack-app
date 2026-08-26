@@ -191,18 +191,27 @@ class _BankVaultPageState extends State<BankVaultPage>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                entry.bankName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.bankName,
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
+                  ),
+                  if (entry.favorite)
+                    const Icon(Icons.star_rounded, semanticLabel: 'Favori'),
+                ],
               ),
               const SizedBox(height: 20),
               _DetailRow(
@@ -210,7 +219,7 @@ class _BankVaultPageState extends State<BankVaultPage>
                 value: entry.username.isEmpty ? 'Eklenmedi' : entry.username,
                 copyable: entry.username.isNotEmpty,
                 onCopy: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _copyUsername(entry);
                 },
               ),
@@ -220,18 +229,18 @@ class _BankVaultPageState extends State<BankVaultPage>
                 value: '••••••••',
                 copyable: true,
                 onCopy: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _copyPassword(entry);
                 },
               ),
               const SizedBox(height: 14),
-              Text('Not', style: Theme.of(context).textTheme.labelLarge),
+              Text('Not', style: Theme.of(sheetContext).textTheme.labelLarge),
               const SizedBox(height: 5),
               Text(entry.note.isEmpty ? 'Not eklenmedi' : entry.note),
               const SizedBox(height: 18),
               Text(
                 _passwordAge(entry),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(sheetContext).textTheme.bodySmall,
               ),
             ],
           ),
@@ -271,6 +280,29 @@ class _BankVaultPageState extends State<BankVaultPage>
     if (mounted) setState(() => _entries = updated);
   }
 
+  Future<void> _toggleFavorite(BankVaultEntry entry) async {
+    final updated = _entries
+        .map((e) => e.id == entry.id
+            ? e.copyWith(favorite: !e.favorite)
+            : e)
+        .toList();
+    await _service.save(updated);
+    if (!mounted) return;
+    setState(() => _entries = updated);
+
+    final isFavorite = !entry.favorite;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text(
+          isFavorite
+              ? '${entry.bankName} favorilere eklendi.'
+              : '${entry.bankName} favorilerden çıkarıldı.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _delete(BankVaultEntry entry) async {
     final ok = await _confirmSensitiveAction(
       '${entry.bankName} kaydını silmek için doğrulayın.',
@@ -279,18 +311,18 @@ class _BankVaultPageState extends State<BankVaultPage>
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Kasa kaydı silinsin mi?'),
         content: Text(
           '${entry.bankName} için saklanan bilgiler bu cihazdan kalıcı olarak silinecek.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Vazgeç'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Sil'),
           ),
         ],
@@ -318,13 +350,19 @@ class _BankVaultPageState extends State<BankVaultPage>
 
   List<BankVaultEntry> get _filteredEntries {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return _entries;
+    final filtered = query.isEmpty
+        ? List<BankVaultEntry>.from(_entries)
+        : _entries.where((entry) {
+            return entry.bankName.toLowerCase().contains(query) ||
+                entry.username.toLowerCase().contains(query) ||
+                entry.note.toLowerCase().contains(query);
+          }).toList();
 
-    return _entries.where((entry) {
-      return entry.bankName.toLowerCase().contains(query) ||
-          entry.username.toLowerCase().contains(query) ||
-          entry.note.toLowerCase().contains(query);
-    }).toList();
+    filtered.sort((a, b) {
+      if (a.favorite != b.favorite) return a.favorite ? -1 : 1;
+      return a.bankName.toLowerCase().compareTo(b.bankName.toLowerCase());
+    });
+    return filtered;
   }
 
   void _lock() {
@@ -495,7 +533,23 @@ class _BankVaultPageState extends State<BankVaultPage>
                           : Icons.account_balance_outlined,
                     ),
                   ),
-                  title: Text(entry.bankName),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(entry.bankName)),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: entry.favorite
+                            ? 'Favorilerden çıkar'
+                            : 'Favorilere ekle',
+                        onPressed: () => _toggleFavorite(entry),
+                        icon: Icon(
+                          entry.favorite
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -520,6 +574,7 @@ class _BankVaultPageState extends State<BankVaultPage>
                   ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) {
+                      if (value == 'favorite') _toggleFavorite(entry);
                       if (value == 'details') _showDetails(entry);
                       if (value == 'show') _showPassword(entry);
                       if (value == 'copyUser') _copyUsername(entry);
@@ -528,6 +583,14 @@ class _BankVaultPageState extends State<BankVaultPage>
                       if (value == 'delete') _delete(entry);
                     },
                     itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'favorite',
+                        child: Text(
+                          entry.favorite
+                              ? 'Favorilerden çıkar'
+                              : 'Favorilere ekle',
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'details',
                         child: Text('Detayları göster'),
