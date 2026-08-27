@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../accounts/data/account_repository.dart';
 import '../../data/credit_card_repository.dart';
 
 class CreditCardsPage extends StatefulWidget {
@@ -12,6 +13,7 @@ class CreditCardsPage extends StatefulWidget {
 
 class _CreditCardsPageState extends State<CreditCardsPage> {
   final _repository = CreditCardRepository();
+  final _accountRepository = AccountRepository();
   late Future<List<CreditCardItem>> _future;
 
   @override
@@ -31,21 +33,67 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
     if (created == true && mounted) setState(_reload);
   }
 
+  Future<void> _pay(CreditCardItem card) async {
+    if (card.currentDebt <= 0) return;
+    try {
+      final accounts = (await _accountRepository.fetchAll())
+          .where((e) => e.active && (e.currency == 'TRY' || e.currency == 'TL'))
+          .toList();
+      if (!mounted) return;
+      if (accounts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ödeme için aktif bir TRY hesabı ekleyin.')),
+        );
+        return;
+      }
+
+      final draft = await showModalBottomSheet<_CardPaymentDraft>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => _CardPaymentSheet(card: card, accounts: accounts),
+      );
+      if (draft == null) return;
+
+      await _repository.pay(
+        cardId: card.id,
+        accountId: draft.accountId,
+        amount: draft.amount,
+      );
+      if (!mounted) return;
+      setState(_reload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${card.name} için ${_money(draft.amount)} ödeme kaydedildi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   Future<void> _delete(CreditCardItem card) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Kartı sil?'),
-        content: Text('${card.name} kartı silinecek.'),
+        content: Text(
+          card.currentDebt > 0
+              ? '${card.name} kartında ${_money(card.currentDebt)} borç var. Borç sıfırlanmadan kart silinemez.'
+              : '${card.name} kartı silinecek.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
+          if (card.currentDebt <= 0)
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sil')),
         ],
       ),
     );
     if (confirmed == true) {
-      await _repository.delete(card.id);
-      if (mounted) setState(_reload);
+      try {
+        await _repository.delete(card.id);
+        if (mounted) setState(_reload);
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 
@@ -86,7 +134,14 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
                       children: [
                         const Text('Toplam kart borcu', style: TextStyle(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 6),
-                        Text(_money(totalDebt), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.error)),
+                        Text(
+                          _money(totalDebt),
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                         const SizedBox(height: 14),
                         Row(
                           children: [
@@ -122,11 +177,23 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
                                       ],
                                     ),
                                   ),
-                                  IconButton(onPressed: () => _delete(card), icon: const Icon(Icons.delete_outline)),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'pay') _pay(card);
+                                      if (value == 'delete') _delete(card);
+                                    },
+                                    itemBuilder: (_) => [
+                                      if (card.currentDebt > 0)
+                                        const PopupMenuItem(value: 'pay', child: Text('Borç öde')),
+                                      const PopupMenuItem(value: 'delete', child: Text('Sil')),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 14),
-                              LinearProgressIndicator(value: card.creditLimit <= 0 ? 0 : (card.currentDebt / card.creditLimit).clamp(0, 1)),
+                              LinearProgressIndicator(
+                                value: card.creditLimit <= 0 ? 0 : (card.currentDebt / card.creditLimit).clamp(0, 1),
+                              ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -138,6 +205,17 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
                               const SizedBox(height: 10),
                               Text('Hesap kesim: Ayın ${card.statementDay}. günü • Son ödeme: Ayın ${card.dueDay}. günü'),
                               if (card.minimumPayment > 0) Text('Asgari ödeme: ${_money(card.minimumPayment)}'),
+                              if (card.currentDebt > 0) ...[
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: () => _pay(card),
+                                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                                    label: const Text('Borç öde'),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -153,6 +231,116 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
   static String _money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
 }
 
+class _CardPaymentDraft {
+  final int accountId;
+  final double amount;
+
+  const _CardPaymentDraft({required this.accountId, required this.amount});
+}
+
+class _CardPaymentSheet extends StatefulWidget {
+  final CreditCardItem card;
+  final List<AccountItem> accounts;
+
+  const _CardPaymentSheet({required this.card, required this.accounts});
+
+  @override
+  State<_CardPaymentSheet> createState() => _CardPaymentSheetState();
+}
+
+class _CardPaymentSheetState extends State<_CardPaymentSheet> {
+  late int _accountId;
+  late final TextEditingController _amount;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountId = widget.accounts.first.id;
+    _amount = TextEditingController(text: widget.card.currentDebt.toStringAsFixed(2));
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
+    if (amount == null || amount <= 0 || amount > widget.card.currentDebt) {
+      setState(() => _error = 'Ödeme tutarı 0’dan büyük ve kart borcundan fazla olmamalı.');
+      return;
+    }
+    Navigator.pop(context, _CardPaymentDraft(accountId: _accountId, amount: amount));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${widget.card.name} borç öde', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text('Mevcut borç: ${CreditCardsPageStateMoney.money(widget.card.currentDebt)}'),
+              const SizedBox(height: 18),
+              DropdownButtonFormField<int>(
+                initialValue: _accountId,
+                decoration: const InputDecoration(labelText: 'Ödeme hesabı', border: OutlineInputBorder()),
+                items: widget.accounts
+                    .map((account) => DropdownMenuItem(
+                          value: account.id,
+                          child: Text('${account.name} • ${CreditCardsPageStateMoney.money(account.signedBalance)}'),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _accountId = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Ödeme tutarı', prefixText: '₺ ', border: OutlineInputBorder()),
+              ),
+              if (widget.card.minimumPayment > 0) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => _amount.text = widget.card.minimumPayment.toStringAsFixed(2),
+                  child: Text('Asgariyi yaz (${CreditCardsPageStateMoney.money(widget.card.minimumPayment)})'),
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+              const SizedBox(height: 12),
+              const Text(
+                'Bu işlem seçilen hesaptan para düşürür ve kart borcunu azaltır. Harcama analitiğine ikinci kez gider olarak eklenmez.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(onPressed: _save, child: const Text('Ödemeyi kaydet')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CreditCardsPageStateMoney {
+  static String money(double value) => NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2).format(value);
+}
+
 class _Metric extends StatelessWidget {
   final String label;
   final String value;
@@ -166,7 +354,15 @@ class _Metric extends StatelessWidget {
         children: [
           Text(label, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 3),
-          FittedBox(child: Text(value, style: TextStyle(fontWeight: FontWeight.w800, color: negative ? Theme.of(context).colorScheme.error : null))),
+          FittedBox(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: negative ? Theme.of(context).colorScheme.error : null,
+              ),
+            ),
+          ),
         ],
       );
 }
