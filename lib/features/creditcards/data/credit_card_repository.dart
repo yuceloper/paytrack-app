@@ -87,6 +87,23 @@ class CreditCardRepository {
     _ensureSuccess(response);
   }
 
+  Future<void> pay({
+    required int cardId,
+    required int accountId,
+    required double amount,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/credit-cards/$cardId/payments'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'accountId': accountId,
+        'amount': amount,
+        'occurredOn': DateTime.now().toIso8601String().split('T').first,
+      }),
+    );
+    _ensureSuccess(response);
+  }
+
   Future<void> delete(int id) async {
     final response = await _client.delete(Uri.parse('${AppConfig.apiBaseUrl}/api/v1/credit-cards/$id'));
     _ensureSuccess(response, allowNoContent: true);
