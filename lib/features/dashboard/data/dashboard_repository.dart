@@ -20,6 +20,10 @@ class DashboardRepository {
   DashboardRepository({http.Client? client}) : _client = client ?? AuthenticatedClient();
 
   Future<DashboardData> fetchDashboard() async {
+    if (AppConfig.screenshotDemo) {
+      return _demoDashboard();
+    }
+
     final results = await Future.wait([
       _get('/api/v1/dashboard/summary'),
       _get('/api/v1/payments/upcoming?days=7'),
@@ -40,6 +44,79 @@ class DashboardRepository {
       upcomingPayments: paymentData
           .map((item) => PaymentItem.fromJson(item as Map<String, dynamic>))
           .toList(),
+    );
+  }
+
+  DashboardData _demoDashboard() {
+    final today = DateTime.now();
+    DateTime plusDays(int days) => DateTime(today.year, today.month, today.day + days);
+
+    const totalAssets = 84500.0;
+    const overdraftDebt = 2450.0;
+    const cardDebt = 12780.0;
+    const loanDebt = 46200.0;
+    const liabilities = overdraftDebt + cardDebt + loanDebt;
+
+    return DashboardData(
+      summary: DashboardSummary(
+        dueThisMonth: 18740.0,
+        dueNextSevenDays: 6890.0,
+        upcomingPaymentCount: 3,
+        overdueAmount: 0,
+        overduePaymentCount: 0,
+        totalAssets: totalAssets,
+        overdraftDebt: overdraftDebt,
+        totalCreditCardDebt: cardDebt,
+        totalLoanDebt: loanDebt,
+        totalLiabilities: liabilities,
+        netWorth: totalAssets - liabilities,
+        monthlySubscriptionCost: 849.90,
+        yearlySubscriptionCost: 10198.80,
+        expectedIncomeThisMonth: 52500.0,
+        receivedIncomeThisMonth: 12500.0,
+        plannedNetCashFlowThisMonth: 33760.0,
+        nextIncomeName: 'Maaş',
+        nextIncomeDate: plusDays(5),
+        nextIncomeAmount: 40000.0,
+        requiredUntilNextIncome: 3250.0,
+      ),
+      upcomingPayments: [
+        PaymentItem(
+          id: -101,
+          name: 'Turkcell Fatura',
+          type: 'BILL',
+          amount: 650.0,
+          dueDate: plusDays(1),
+          recurring: true,
+          recurrenceDay: plusDays(1).day,
+          recurrenceFrequency: 'MONTHLY',
+          recurrenceInterval: 1,
+          paid: false,
+          institution: 'Turkcell',
+        ),
+        PaymentItem(
+          id: -102,
+          name: 'Netflix',
+          type: 'SUBSCRIPTION',
+          amount: 229.99,
+          dueDate: plusDays(3),
+          recurring: true,
+          recurrenceDay: plusDays(3).day,
+          recurrenceFrequency: 'MONTHLY',
+          recurrenceInterval: 1,
+          paid: false,
+        ),
+        PaymentItem(
+          id: -103,
+          name: 'Kredi Kartı Ekstresi',
+          type: 'CREDIT_CARD',
+          amount: 6010.01,
+          dueDate: plusDays(5),
+          recurring: false,
+          paid: false,
+          institution: 'Banka',
+        ),
+      ],
     );
   }
 
