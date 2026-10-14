@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/semantic_colors.dart';
 import '../../../incomes/data/income_repository.dart';
 import '../../../payments/data/models/payment_item.dart';
@@ -29,6 +30,11 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void _load() {
+    if (AppConfig.screenshotDemo) {
+      _data = Future.value(_demoCalendarData());
+      return;
+    }
+
     final from = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final to = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
 
@@ -40,6 +46,99 @@ class _CalendarPageState extends State<CalendarPage> {
         payments: results[0] as List<PaymentItem>,
         incomes: results[1] as List<IncomeOccurrenceItem>,
       ),
+    );
+  }
+
+  _CalendarData _demoCalendarData() {
+    DateTime day(int value) => DateTime(_focusedMonth.year, _focusedMonth.month, value);
+    final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
+    final today = DateTime.now();
+    final selectedDay = _focusedMonth.year == today.year && _focusedMonth.month == today.month
+        ? today.day
+        : 14.clamp(1, daysInMonth);
+    _selectedDate = day(selectedDay);
+
+    int safeDay(int value) => value.clamp(1, daysInMonth);
+
+    return _CalendarData(
+      payments: [
+        PaymentItem(
+          id: -201,
+          name: 'Elektrik Faturası',
+          type: 'BILL',
+          amount: 1240.0,
+          dueDate: day(safeDay(selectedDay)),
+          recurring: true,
+          recurrenceDay: safeDay(selectedDay),
+          recurrenceFrequency: 'MONTHLY',
+          recurrenceInterval: 1,
+          paid: false,
+          institution: 'Elektrik',
+        ),
+        PaymentItem(
+          id: -202,
+          name: 'Netflix',
+          type: 'SUBSCRIPTION',
+          amount: 229.99,
+          dueDate: day(safeDay(selectedDay + 3)),
+          recurring: true,
+          recurrenceDay: safeDay(selectedDay + 3),
+          recurrenceFrequency: 'MONTHLY',
+          recurrenceInterval: 1,
+          paid: false,
+        ),
+        PaymentItem(
+          id: -203,
+          name: 'Kredi Kartı Ekstresi',
+          type: 'CREDIT_CARD',
+          amount: 6010.01,
+          dueDate: day(safeDay(selectedDay + 5)),
+          recurring: false,
+          paid: false,
+          institution: 'Banka',
+        ),
+        PaymentItem(
+          id: -204,
+          name: 'İnternet Faturası',
+          type: 'BILL',
+          amount: 589.90,
+          dueDate: day(safeDay(selectedDay + 9)),
+          recurring: true,
+          recurrenceDay: safeDay(selectedDay + 9),
+          recurrenceFrequency: 'MONTHLY',
+          recurrenceInterval: 1,
+          paid: false,
+        ),
+      ],
+      incomes: [
+        IncomeOccurrenceItem(
+          id: -301,
+          incomeSourceId: -1,
+          name: 'Freelance Proje',
+          amount: 8500.0,
+          currency: 'TRY',
+          expectedDate: day(safeDay(selectedDay)),
+          received: true,
+        ),
+        IncomeOccurrenceItem(
+          id: -302,
+          incomeSourceId: -2,
+          name: 'Maaş',
+          amount: 40000.0,
+          currency: 'TRY',
+          expectedDate: day(safeDay(selectedDay + 5)),
+          received: false,
+        ),
+        IncomeOccurrenceItem(
+          id: -303,
+          incomeSourceId: -3,
+          name: 'Ek Gelir',
+          amount: 4000.0,
+          currency: 'TRY',
+          expectedDate: day(safeDay(selectedDay + 11)),
+          received: false,
+        ),
+      ],
     );
   }
 
@@ -383,6 +482,7 @@ class _PaymentCard extends StatelessWidget {
     return Card(
       child: ListTile(
         onTap: () async {
+          if (AppConfig.screenshotDemo) return;
           final changed = await Navigator.push<bool>(
             context,
             MaterialPageRoute(builder: (_) => PaymentDetailPage(payment: payment)),
