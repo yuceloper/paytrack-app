@@ -15,6 +15,16 @@ Google account linking requires both compile-time values:
 - `GOOGLE_IOS_CLIENT_ID`
 - `GOOGLE_SERVER_CLIENT_ID`
 
+## App icon
+
+The production PayTrack icon source is stored in `tool/paytrack_app_icon.jpg.b64`. Install all required iPhone, iPad and App Store icon sizes before building:
+
+```bash
+bash tool/install_ios_app_icon.sh
+```
+
+The script writes the generated PNG files into `ios/Runner/Assets.xcassets/AppIcon.appiconset` using the filenames already referenced by `Contents.json`.
+
 ## Release build
 
 Use Xcode 26 or later and the iOS 26 SDK or later for App Store Connect uploads.
@@ -22,6 +32,7 @@ Use Xcode 26 or later and the iOS 26 SDK or later for App Store Connect uploads.
 ```bash
 flutter clean
 flutter pub get
+bash tool/install_ios_app_icon.sh
 cd ios && pod install && cd ..
 
 flutter build ipa --release \
