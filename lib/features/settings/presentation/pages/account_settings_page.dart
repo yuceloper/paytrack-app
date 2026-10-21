@@ -4,6 +4,8 @@ import '../../../../core/auth/account_profile_service.dart';
 import '../../../../core/auth/auth_session_service.dart';
 import '../../../../core/auth/google_link_service.dart';
 import '../../../../core/auth/session_store.dart';
+import '../../../../core/notifications/notification_service.dart';
+import '../../../vault/data/bank_vault_service.dart';
 import '../../../vault/presentation/pages/bank_vault_page.dart';
 
 class AccountSettingsPage extends StatefulWidget {
@@ -16,6 +18,7 @@ class AccountSettingsPage extends StatefulWidget {
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool _linking = false;
   bool _loggingOut = false;
+  bool _deleting = false;
   late Future<AccountProfile> _profile;
 
   @override
@@ -27,6 +30,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final linked = !SessionStore.guest;
+    final busy = _linking || _loggingOut || _deleting;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Hesap')),
@@ -69,7 +73,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _linking ? null : _linkGoogle,
+                        onPressed: busy ? null : _linkGoogle,
                         icon: _linking
                             ? const SizedBox(
                                 width: 18,
@@ -103,9 +107,11 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               title: const Text('Banka Kasası'),
               subtitle: const Text('Banka şifrelerini Face ID ile koruyup yalnızca bu telefonda sakla.'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BankVaultPage()),
-              ),
+              onTap: busy
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const BankVaultPage()),
+                      ),
             ),
           ),
           const SizedBox(height: 14),
@@ -125,7 +131,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _loggingOut ? null : _confirmLogout,
+                onPressed: busy ? null : _confirmLogout,
                 icon: _loggingOut
                     ? const SizedBox(
                         width: 18,
@@ -143,6 +149,37 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 12),
+          Text(
+            'Hesabı ve verileri sil',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Bu işlem PayTrack sunucusundaki hesabını ve finansal takip verilerini kalıcı olarak siler. Bu cihazdaki Şifre Kasası ve PayTrack hatırlatıcıları da temizlenir.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : _confirmDeleteAccount,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+              ),
+              icon: _deleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_outlined),
+              label: Text(_deleting ? 'Hesap siliniyor...' : 'Hesabımı sil'),
+            ),
+          ),
         ],
       ),
     );
@@ -249,6 +286,63 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _loggingOut = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error),
+        title: const Text('Hesabın kalıcı olarak silinsin mi?'),
+        content: const Text(
+          'Ödeme, gelir, hesap, borç, kredi kartı, kredi, abonelik, fatura ve hesap hareketlerin sunucudan kalıcı olarak silinecek. Bu cihazdaki Şifre Kasası ve PayTrack hatırlatıcıları da temizlenecek. Bu işlem geri alınamaz.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Kalıcı olarak sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteAccount();
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    setState(() => _deleting = true);
+    try {
+      await AuthSessionService.deleteCurrentAccountAndCreateGuest();
+      await Future.wait([
+        BankVaultService().clear(),
+        NotificationService.instance.clearPayTrackReminders(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _profile = AccountProfileService.load();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hesabın ve ilişkili PayTrack verilerin kalıcı olarak silindi.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 }
