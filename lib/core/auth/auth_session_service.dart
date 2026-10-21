@@ -126,6 +126,35 @@ class AuthSessionService {
     );
   }
 
+  static Future<void> deleteCurrentAccountAndCreateGuest() async {
+    final accessToken = SessionStore.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthSessionExpiredException('Aktif oturum bulunamadı.');
+    }
+
+    final response = await http
+        .delete(
+          Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/me'),
+          headers: {'Authorization': 'Bearer $accessToken'},
+        )
+        .timeout(_bootstrapTimeout);
+
+    if (response.statusCode != 204) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const AuthSessionExpiredException('Oturum süresi doldu. Hesap silinemedi.');
+      }
+      throw Exception('Hesap silinemedi (${response.statusCode})');
+    }
+
+    await clearLocalSession();
+    await _createGuestSession().timeout(
+      _bootstrapTimeout,
+      onTimeout: () => throw TimeoutException(
+        'Hesap silindi ancak yeni misafir oturumu ${_bootstrapTimeout.inSeconds} saniye içinde oluşturulamadı.',
+      ),
+    );
+  }
+
   static Future<void> clearLocalSession() async {
     SessionStore.clear();
     await Future.wait([
