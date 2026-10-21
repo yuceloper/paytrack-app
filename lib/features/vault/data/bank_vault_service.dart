@@ -90,4 +90,8 @@ class BankVaultService {
       value: jsonEncode(entries.map((e) => e.toJson()).toList()),
     );
   }
+
+  Future<void> clear() async {
+    await _storage.delete(key: _key);
+  }
 }
