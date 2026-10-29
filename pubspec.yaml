@@ -1,7 +1,7 @@
 name: paytrack_app
 description: PayTrack personal payment tracking app
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.1+3
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -25,6 +25,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  ios: true
+  android: false
+  image_path_ios: assets/app_icon/paytrack_app_icon_1024x1024.png
+  remove_alpha_ios: true
