@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../application/payment_text_parser.dart';
 import '../../data/models/payment_item.dart';
 import '../../data/payment_repository.dart';
 
 class AddPaymentPage extends StatefulWidget {
   final PaymentItem? payment;
+  final PaymentRepository? repository;
+  final PaymentTextDraft? initialDraft;
+  final String? draftNote;
 
-  const AddPaymentPage({super.key, this.payment});
+  const AddPaymentPage({super.key, this.payment, this.repository, this.initialDraft, this.draftNote});
 
   bool get isEditing => payment != null;
 
@@ -15,12 +20,14 @@ class AddPaymentPage extends StatefulWidget {
 
 class _AddPaymentPageState extends State<AddPaymentPage> {
   final _formKey = GlobalKey<FormState>();
+  int? _parsedDay;
+  bool _fromText = false;
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   final _institutionController = TextEditingController();
   final _noteController = TextEditingController();
   final _intervalController = TextEditingController(text: '1');
-  final _repository = PaymentRepository();
+  late final _repository = widget.repository ?? PaymentRepository();
 
   String _type = 'OTHER';
   DateTime _dueDate = DateTime.now();
@@ -32,6 +39,18 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   @override
   void initState() {
     super.initState();
+    final draft = widget.initialDraft;
+    if (draft != null && !widget.isEditing) {
+      _fromText = true;
+      _nameController.text = draft.name;
+      _amountController.text = draft.amount.toStringAsFixed(2);
+      _institutionController.text = draft.type == 'SUBSCRIPTION' ? draft.name : '';
+      _noteController.text = widget.draftNote ?? '';
+      _type = draft.type;
+      _dueDate = draft.dueDate;
+      _parsedDay = draft.day;
+      _recurring = true;
+    }
     final payment = widget.payment;
     if (payment != null) {
       _nameController.text = payment.name;
@@ -58,7 +77,33 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
+
+    if (_fromText) {
+      final amount = double.parse(_amountController.text.replaceAll(',', '.'));
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Gideri ekleyelim mi?'),
+          content: SingleChildScrollView(
+            child: Text(
+              '${_nameController.text.trim()}\n'
+              '${NumberFormat.currency(locale: 'tr_TR', symbol: '₺').format(amount)}\n'
+              '${_recurring ? _usesMonthlyAnchor ? "Her ${_intervalController.text} ayda bir, ayın ${_parsedDay ?? _dueDate.day}. günü" : "$_recurrenceSummary • aralık: ${_intervalController.text}" : "Tek seferlik"}\n'
+              'İlk ödeme: ${DateFormat('dd.MM.yyyy').format(_dueDate)}\n'
+              '${_recurring ? _recurrenceEndDate == null ? "Bitiş: Süresiz" : "Bitiş: ${DateFormat('dd.MM.yyyy').format(_recurrenceEndDate!)}" : ""}'
+              '${_recurring && _usesMonthlyAnchor && (_parsedDay ?? _dueDate.day) > 28 ? "\nKısa aylarda ayın son günü kullanılır." : ""}',
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Düzenle')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Onayla ve ekle')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
 
     var scope = 'THIS';
     if (widget.isEditing && widget.payment!.seriesId != null) {
@@ -76,7 +121,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
         amount: double.parse(_amountController.text.replaceAll(',', '.')),
         dueDate: _dueDate,
         recurring: _recurring,
-        recurrenceDay: _recurring && _usesMonthlyAnchor ? _dueDate.day : null,
+        recurrenceDay: _recurring && _usesMonthlyAnchor ? (_parsedDay ?? _dueDate.day) : null,
         recurrenceFrequency: _recurring ? _recurrenceFrequency : null,
         recurrenceInterval: interval,
         recurrenceEndDate: _recurring ? _recurrenceEndDate : null,
@@ -201,6 +246,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
+              key: ValueKey(_type),
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Tür', border: OutlineInputBorder()),
               items: const [
@@ -238,7 +284,10 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
                   firstDate: DateTime(2020),
                   lastDate: DateTime(2100),
                 );
-                if (picked != null) setState(() => _dueDate = picked);
+                if (picked != null) setState(() {
+                  _dueDate = picked;
+                  _parsedDay = null;
+                });
               },
             ),
             SwitchListTile(
@@ -251,6 +300,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
             if (_recurring) ...[
               const SizedBox(height: 4),
               DropdownButtonFormField<String>(
+                key: ValueKey(_recurrenceFrequency),
                 initialValue: _recurrenceFrequency,
                 decoration: const InputDecoration(labelText: 'Tekrar sıklığı', border: OutlineInputBorder()),
                 items: const [
@@ -319,7 +369,7 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
               if (_usesMonthlyAnchor) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Ayın ${_dueDate.day}. günü hedeflenir; kısa aylarda otomatik olarak ayın son gününe çekilir.',
+                  'Ayın ${_parsedDay ?? _dueDate.day}. günü hedeflenir; kısa aylarda otomatik olarak ayın son gününe çekilir.',
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
