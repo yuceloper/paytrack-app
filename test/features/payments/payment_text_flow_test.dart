@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:paytrack_app/features/payments/data/payment_repository.dart';
-import 'package:paytrack_app/features/payments/presentation/pages/add_payment_page.dart';
+import 'package:paytrack_app/features/assistant/presentation/pages/assistant_page.dart';
 
 void main() {
   testWidgets('only posts a monthly payment after explicit confirmation', (tester) async {
@@ -13,18 +13,22 @@ void main() {
       requests.add(request);
       return http.Response('{}', 201);
     }));
-    await tester.pumpWidget(MaterialApp(home: AddPaymentPage(repository: repository)));
+    await tester.pumpWidget(MaterialApp(home: AssistantPage(repository: repository)));
     await tester.enterText(find.byType(TextField).first,
         'TürkNet abonesiyim her ayın 27sinde 1900 TL ödüyorum');
-    await tester.tap(find.text('Özeti göster'));
+    await tester.tap(find.byTooltip('Gönder'));
     await tester.pumpAndSettle();
-    expect(find.text('Gideri ekleyelim mi?'), findsOneWidget);
+    expect(find.text('AYLIK GİDER'), findsOneWidget);
     expect(requests, isEmpty);
+    await tester.ensureVisible(find.text('Düzenle'));
     await tester.tap(find.text('Düzenle'));
     await tester.pumpAndSettle();
     expect(requests, isEmpty);
-    await tester.tap(find.text('Özeti göster'));
+    await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Gönder'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Onayla ve ekle'));
     await tester.tap(find.text('Onayla ve ekle'));
     await tester.pumpAndSettle();
     expect(requests, hasLength(1));

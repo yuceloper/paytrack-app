@@ -7,8 +7,10 @@ import '../../data/payment_repository.dart';
 class AddPaymentPage extends StatefulWidget {
   final PaymentItem? payment;
   final PaymentRepository? repository;
+  final PaymentTextDraft? initialDraft;
+  final String? draftNote;
 
-  const AddPaymentPage({super.key, this.payment, this.repository});
+  const AddPaymentPage({super.key, this.payment, this.repository, this.initialDraft, this.draftNote});
 
   bool get isEditing => payment != null;
 
@@ -18,8 +20,6 @@ class AddPaymentPage extends StatefulWidget {
 
 class _AddPaymentPageState extends State<AddPaymentPage> {
   final _formKey = GlobalKey<FormState>();
-  final _textController = TextEditingController();
-  String? _textError;
   int? _parsedDay;
   bool _fromText = false;
   final _nameController = TextEditingController();
@@ -39,6 +39,18 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   @override
   void initState() {
     super.initState();
+    final draft = widget.initialDraft;
+    if (draft != null && !widget.isEditing) {
+      _fromText = true;
+      _nameController.text = draft.name;
+      _amountController.text = draft.amount.toStringAsFixed(2);
+      _institutionController.text = draft.type == 'SUBSCRIPTION' ? draft.name : '';
+      _noteController.text = widget.draftNote ?? '';
+      _type = draft.type;
+      _dueDate = draft.dueDate;
+      _parsedDay = draft.day;
+      _recurring = true;
+    }
     final payment = widget.payment;
     if (payment != null) {
       _nameController.text = payment.name;
@@ -56,7 +68,6 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
 
   @override
   void dispose() {
-    _textController.dispose();
     _nameController.dispose();
     _amountController.dispose();
     _institutionController.dispose();
@@ -203,32 +214,6 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
   bool get _usesMonthlyAnchor =>
       _recurrenceFrequency == 'MONTHLY' || _recurrenceFrequency == 'CUSTOM_MONTHS';
 
-  Future<void> _prepareFromText() async {
-    try {
-      final draft = PaymentTextParser.parse(_textController.text, now: DateTime.now());
-      setState(() {
-        _textError = null;
-        _fromText = true;
-        _nameController.text = draft.name;
-        _amountController.text = draft.amount.toStringAsFixed(2);
-        _institutionController.text = draft.type == 'SUBSCRIPTION' ? draft.name : '';
-        _noteController.text = _textController.text.trim();
-        _type = draft.type;
-        _dueDate = draft.dueDate;
-        _parsedDay = draft.day;
-        _recurring = true;
-        _recurrenceFrequency = 'MONTHLY';
-        _intervalController.text = '1';
-        _recurrenceEndDate = null;
-      });
-      FocusScope.of(context).unfocus();
-      await WidgetsBinding.instance.endOfFrame;
-      if (mounted) await _save();
-    } on FormatException catch (error) {
-      setState(() => _textError = error.message);
-    }
-  }
-
   String get _intervalLabel => switch (_recurrenceFrequency) {
         'WEEKLY' => 'Kaç haftada bir',
         'YEARLY' => 'Kaç yılda bir',
@@ -254,33 +239,6 @@ class _AddPaymentPageState extends State<AddPaymentPage> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            if (!widget.isEditing) ...[
-              Text('Yazarak ekle', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              const Text('Aylık aboneliğini veya kiranı yaz; özeti onayladıktan sonra ekleyelim.'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _textController,
-                enabled: !_saving,
-                minLines: 2,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  hintText: 'TürkNet abonesiyim, her ayın 27’sinde 1900 TL ödüyorum.',
-                  errorText: _textError,
-                  errorMaxLines: 3,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _saving ? null : _prepareFromText,
-                icon: const Icon(Icons.auto_awesome_outlined),
-                label: const Text('Özeti göster'),
-              ),
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 12),
-            ],
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Ödeme adı', border: OutlineInputBorder()),
