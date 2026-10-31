@@ -21,6 +21,7 @@ void main() {
     expect(find.text('AYLIK GİDER'), findsOneWidget);
     expect(requests, isEmpty);
     await tester.ensureVisible(find.text('Düzenle'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Düzenle'));
     await tester.pumpAndSettle();
     expect(requests, isEmpty);
@@ -29,6 +30,7 @@ void main() {
     await tester.tap(find.byTooltip('Gönder'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Onayla ve ekle'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Onayla ve ekle'));
     await tester.pumpAndSettle();
     expect(requests, hasLength(1));
