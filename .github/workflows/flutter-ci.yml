@@ -21,3 +21,5 @@ jobs:
         run: flutter pub get
       - name: Analyze
         run: flutter analyze
+      - name: Test payment text entry
+        run: flutter test test/features/payments
